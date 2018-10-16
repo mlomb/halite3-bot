@@ -1,7 +1,12 @@
 #include <iostream>
 
+#include "Game.hpp"
+
 int main() {
-	std::cout << "Hello" << std::endl;
-	std::cin.get();
+	Game game;
+
+	game.Initialize("mlomb-bot");
+	game.Play();
+
 	return 0;
 }
