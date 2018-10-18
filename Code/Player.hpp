@@ -1,27 +1,31 @@
 #pragma once
 
-#include <unordered_map>
+#include <map>
 
-typedef int PlayerID;
-typedef int EntityID;
+#include "Types.hpp"
 
 class Game;
 
 struct Ship {
 	EntityID ship_id;
-	int x, y;
+	Position pos;
 	int halite;
+
+	// STRATEGY-SPECIFIC
+	int task_id = 0;
+	double task_priority = 0;
 };
 
 class Player {
 public:
 	Player() {};
-	Player(PlayerID id, int shipyard_x, int shipyard_y);
+	Player(PlayerID id, Position shipyard_position);
 
 	void Update(int num_ships, int num_dropoffs, int halite, Game* game);
 
 	PlayerID id;
+	Position shipyard_position;
 	int halite;
-	int shipyard_x, shipyard_y;
-	std::unordered_map<EntityID, Ship> ships;
+	
+	std::map<EntityID, Ship*> ships;
 };

@@ -1,12 +1,15 @@
 #include "Game.hpp"
 
 #include "Command.hpp"
+#include "Strategy.hpp"
 
 Game* Game::s_Instance = nullptr;
 
 Game::Game()
 {
 	s_Instance = this;
+	strategy = new Strategy(this);
+	map = new Map();
 }
 
 Game* Game::Get()
@@ -26,15 +29,21 @@ void Game::Initialize(const std::string& bot_name)
 
 	for (int i = 0; i < num_players; i++) {
 		PlayerID player_id;
-		int shipyard_x;
-		int shipyard_y;
-		in::GetSStream() >> player_id >> shipyard_x >> shipyard_y;
-		players[player_id] = Player(player_id, shipyard_x, shipyard_y);
+		Position shipyard_position;
+		in::GetSStream() >> player_id >> shipyard_position.x >> shipyard_position.y;
+		players[player_id] = Player(player_id, shipyard_position);
 	}
 
-	map.Initialize();
-
+	map->Initialize();
+	
 	std::cout << bot_name << std::endl;
+
+	// INFO
+	out::Log("----------------------------");
+	out::Log("Bot: " + bot_name);
+	out::Log("Num players: " + num_players);
+	out::Log("Map: " + std::to_string(map->width) + "x" + std::to_string(map->height));
+	out::Log("----------------------------");
 }
 
 void Game::Play()
@@ -59,22 +68,14 @@ void Game::Update()
 		players[player_id].Update(num_ships, num_dropoffs, halite, this);
 	}
 
-	map.Update();
+	map->Update();
 }
 
 void Game::Turn()
 {
 	std::vector<Command> commands;
-
-	if (CanSpawnShip()) {
-		commands.push_back(SpawnCommand());
-	}
-	Player& me = GetMyPlayer();
-	for (auto& p : me.ships) {
-		Ship& s = p.second;
-
-
-	}
+	
+	strategy->Execute(commands);
 
 	// End Turn
 	for (const Command& c : commands)

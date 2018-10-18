@@ -1,5 +1,7 @@
 #include "IO.hpp"
 
+#include "Game.hpp"
+
 namespace in {
 	std::string GetString()
 	{
@@ -25,6 +27,7 @@ namespace out {
 	static bool has_atexit = false;
 
 	void dump_buffer_at_exit() {
+#ifdef DEBUG
 		if (has_opened) {
 			return;
 		}
@@ -34,10 +37,12 @@ namespace out {
 		std::ofstream file(filename, std::ios::trunc | std::ios::out);
 		for (const std::string& message : log_buffer)
 			file << message << std::endl;
+#endif
 	}
 
 	void Open(int bot_id)
 	{
+#ifdef DEBUG
 		if (has_opened) {
 			out::Log("Error: log: tried to open(" + std::to_string(bot_id) + ") but we have already opened before.");
 			exit(1);
@@ -50,10 +55,12 @@ namespace out {
 		for (const std::string& message : log_buffer)
 			log_file << message << std::endl;
 		log_buffer.clear();
+#endif
 	}
 
 	void Log(const std::string& message)
 	{
+#ifdef DEBUG
 		if (has_opened) {
 			log_file << message << std::endl;
 		} else {
@@ -63,5 +70,20 @@ namespace out {
 			}
 			log_buffer.push_back(message);
 		}
+#endif
+	}
+
+	void LogShip(int ship_id, const json& data)
+	{
+#ifdef DEBUG
+		Game* g = Game::Get();
+		json j = {
+			{ "turn", g->turn },
+			{ "type", "ship" },
+			{ "ship_id", ship_id },
+			{ "data", data }
+		};
+		Log("FLUORINEDEBUG " + j.dump());
+#endif
 	}
 }

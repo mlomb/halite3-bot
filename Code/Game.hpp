@@ -12,6 +12,8 @@
 #include "Map.hpp"
 #include "IO.hpp"
 
+class Strategy;
+
 class Game {
 public:
 	Game();
@@ -32,7 +34,9 @@ public:
 	int num_players;
 	PlayerID my_id;
 	std::unordered_map<PlayerID, Player> players;
-	Map map;
+
+	Map* map;
+	Strategy* strategy;
 
 private:
 	static Game* s_Instance;

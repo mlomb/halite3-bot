@@ -2,8 +2,10 @@
 
 #include <vector>
 
+#include "Types.hpp"
+
 struct Cell {
-	int x, y;
+	Position pos;
 	int halite;
 };
 
@@ -14,6 +16,8 @@ public:
 	void Initialize();
 	void Update();
 
+	Cell* GetCell(Position pos);
+
 	int width, height;
-	std::vector<std::vector<Cell>> cells;
+	std::vector<std::vector<Cell*>> cells;
 };

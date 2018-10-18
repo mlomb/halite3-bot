@@ -19,7 +19,11 @@ void Map::Initialize()
 			int halite;
 			in >> halite;
 
-			cells[y].push_back(Cell { x, y, halite });
+			Cell* c = new Cell();
+			c->pos = { x, y };
+			c->halite = halite;
+
+			cells[y][x] = c;
 		}
 	}
 }
@@ -30,10 +34,19 @@ void Map::Update()
 	in::GetSStream() >> update_count;
 
 	for (int i = 0; i < update_count; ++i) {
-		int x;
-		int y;
+		Position pos;
 		int halite;
-		in::GetSStream() >> x >> y >> halite;
-		cells[y][x].halite = halite;
+		in::GetSStream() >> pos.x >> pos.y >> halite;
+		GetCell(pos)->halite = halite;
 	}
+}
+
+Cell* Map::GetCell(Position pos)
+{
+#ifdef DEBUG
+	if (pos.x < 0 || pos.y < 0 || pos.x >= width || pos.y >= height) {
+		out::Log("GetCell out of bounds: " + pos.str() + " -- Crash incoming");
+	}
+#endif
+	return cells[pos.y][pos.x];
 }
