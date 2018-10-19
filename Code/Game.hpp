@@ -30,6 +30,7 @@ public:
 
 	bool CanSpawnShip();
 
+	int remaining_turns;
 	int turn;
 	int num_players;
 	PlayerID my_id;

@@ -66,4 +66,6 @@ public:
 	Game* game;
 	std::vector<Task*> tasks;
 	std::map<Position, OptimalPathMap> minCostCache;
+
+	bool suicide_stage;
 };

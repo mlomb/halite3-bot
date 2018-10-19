@@ -64,6 +64,7 @@ void Game::Play()
 void Game::Update()
 {
 	in::GetSStream() >> turn;
+	remaining_turns = hlt::constants::MAX_TURNS - turn;
 	out::Log("=============== TURN " + std::to_string(turn) + " ================");
 
 	for (int i = 0; i < num_players; i++) {

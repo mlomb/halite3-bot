@@ -8,9 +8,9 @@ var args = [
 	'--results-as-json',
 	'--no-compression',
 	'--width',
-	'64',
+	'32',
 	'--height',
-	'64',
+	'32',
 	'--no-logs',
 	'"cd Build/Release && MyBot.exe"',
 	'"cd Build/Release && MyBot.exe"'

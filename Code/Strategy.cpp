@@ -115,6 +115,8 @@ double Strategy::CalculatePriority(Position start, Position destination, int shi
 	OptimalPathResult destCost = PathMinCost(start, destination);
 
 	//out::Log("Cost from: " + start.str() + " to " + destination.str() + ": " + std::to_string(destCost.haliteCost) + " in " + std::to_string(destCost.turns));
+	if (shipHalite < destCost.haliteCost)
+		return -1;
 
 	if (is_dropoff) {
 		return (double)(shipHalite - destCost.haliteCost) / (double)destCost.turns;
@@ -126,7 +128,12 @@ double Strategy::CalculatePriority(Position start, Position destination, int shi
 		double cost = destCost.haliteCost + toDropoffCost.haliteCost;
 		double turns_cost = destCost.turns + toDropoffCost.turns;
 
+
 		OptimalMiningResult mineOptimal = MineMaxProfit(shipHalite, cost, turns_cost, game->map->GetCell(destination)->halite);
+
+		if (shipHalite < cost)
+			return -1;
+
 		return mineOptimal.profit_per_turn;
 		//return (1000 - cost) / (mineOptimal.turns + turns_cost);
 	}
@@ -154,7 +161,7 @@ void Strategy::CreateTasks()
 	for (int x = 0; x < map->width; x++) {
 		for (int y = 0; y < map->height; y++) {
 			Cell* c = map->GetCell({ x, y });
-			if (c->halite > 1) {
+			if (c->halite > 1 && c->pos != me.shipyard_position) {
 				Task* t = new Task();
 				t->id = task_id++;
 				t->type = MINE;
@@ -170,6 +177,8 @@ void Strategy::CreateTasks()
 
 void Strategy::AssignTasks()
 {
+	Player& me = game->GetMyPlayer();
+
 	std::queue<Ship*> shipsToAssign;
 
 	for (auto& p : game->GetMyPlayer().ships) {
@@ -191,6 +200,15 @@ void Strategy::AssignTasks()
 		
 		for (Task* t : tasks) {
 			double priority = CalculatePriority(s->pos, t->pos, s->halite);
+
+			if (t->type == DROP) {
+				OptimalPathResult r = PathMinCost(s->pos, me.shipyard_position);
+				if (suicide_stage) {
+					if (r.turns < game->remaining_turns * 0.7) {
+						priority += 100000;
+					}
+				}
+			}
 
 			Ship* otherShipPtrWithLessPriority = 0;
 			if (t->IsFull()) {
@@ -268,6 +286,11 @@ void Strategy::ComputeMovements(std::vector<Command>& commands)
 	});
 	
 	for (Ship* s : my_ships) {
+		if (suicide_stage) {
+			// let ships crash on dropoffs
+			hits[me.shipyard_position.x][me.shipyard_position.y] = false;
+		}
+
 		Position target = s->pos;
 
 		if (s->task_id != -1) {
@@ -321,7 +344,7 @@ void Strategy::ComputeMovements(std::vector<Command>& commands)
 	}
 
 
-	if (game->CanSpawnShip() && !hits[me.shipyard_position.x][me.shipyard_position.y]) {
+	if (!suicide_stage && game->CanSpawnShip() && !hits[me.shipyard_position.x][me.shipyard_position.y]) {
 		// Spawneo o no
 		/*
 		int avg_ships_per_enemies = 0;
@@ -340,6 +363,8 @@ void Strategy::ComputeMovements(std::vector<Command>& commands)
 
 void Strategy::Execute(std::vector<Command>& commands)
 {
+	suicide_stage = game->turn > std::max(0.95 * hlt::constants::MAX_TURNS, hlt::constants::MAX_TURNS - game->map->width * 0.6);
+
 	minCostCache.clear();
 
 	{
