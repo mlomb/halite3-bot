@@ -23,7 +23,7 @@ OptimalPathResult Strategy::PathMinCost(Position start, Position end)
 
 	std::queue<Position> q;
 
-	map.cells[start.x][start.y] = { 0, 0, false, true };
+	map.cells[start.x][start.y] = { 0, 1, false, true };
 	q.push(start);
 
 	while (!q.empty()) {
@@ -127,8 +127,8 @@ double Strategy::CalculatePriority(Position start, Position destination, int shi
 		double turns_cost = destCost.turns + toDropoffCost.turns;
 
 		OptimalMiningResult mineOptimal = MineMaxProfit(shipHalite, cost, turns_cost, game->map->GetCell(destination)->halite);
-		//return mineOptimal.profit_per_turn;
-		return (1000 - cost) / (mineOptimal.turns + turns_cost);
+		return mineOptimal.profit_per_turn;
+		//return (1000 - cost) / (mineOptimal.turns + turns_cost);
 	}
 }
 
@@ -304,15 +304,18 @@ void Strategy::ComputeMovements(std::vector<Command>& commands)
 		Direction d = Direction::STILL;
 		for (const Option& option : options) {
 			auto mov_pos = s->pos.DirectionalOffset(option.direction);
+			mov_pos.Wrap(game->map->width, game->map->height);
 
-			if (!hits[mov_pos.x % game->map->width][mov_pos.y % game->map->height]) {
+			if (!hits[mov_pos.x][mov_pos.y]) {
 				d = option.direction;
 				break;
 			}
 		}
 
 		auto mov_pos = s->pos.DirectionalOffset(d);
-		hits[mov_pos.x % game->map->width][mov_pos.y % game->map->height] = true;
+		mov_pos.Wrap(game->map->width, game->map->height);
+		
+		hits[mov_pos.x][mov_pos.y] = true;
 
 		commands.push_back(MoveCommand(s->ship_id, d));
 	}
@@ -339,9 +342,18 @@ void Strategy::Execute(std::vector<Command>& commands)
 {
 	minCostCache.clear();
 
-	CreateTasks();
+	{
+		out::Stopwatch("Create Tasks");
+		CreateTasks();
+	}
 
-	AssignTasks();
+	{
+		out::Stopwatch("Assign Tasks");
+		AssignTasks();
+	}
 
-	ComputeMovements(commands);
+	{
+		out::Stopwatch("Compute Movements");
+		ComputeMovements(commands);
+	}
 }

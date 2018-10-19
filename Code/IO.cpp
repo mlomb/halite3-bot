@@ -2,6 +2,7 @@
 
 #include "Game.hpp"
 
+
 namespace in {
 	std::string GetString()
 	{
@@ -21,6 +22,8 @@ namespace in {
 }
 
 namespace out {
+	std::vector<std::string> Stopwatch::messages;
+
 	static std::ofstream log_file;
 	static std::vector<std::string> log_buffer;
 	static bool has_opened = false;
@@ -84,6 +87,32 @@ namespace out {
 			{ "data", data }
 		};
 		Log("FLUORINEDEBUG " + j.dump());
+#endif
+	}
+
+
+	Stopwatch::Stopwatch(const std::string& identifier) : identifier(identifier) {
+#ifdef DEBUG
+		start = std::chrono::high_resolution_clock::now();
+#endif
+	}
+
+	Stopwatch::~Stopwatch() {
+#ifdef DEBUG
+		auto end = std::chrono::high_resolution_clock::now();
+		std::chrono::duration<double> elapsed = end - start;
+		long long ms = std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count();
+
+		messages.push_back(identifier + ": " + std::to_string(ms) + "ms");
+#endif
+	}
+
+	void Stopwatch::FlushMessages() {
+#ifdef DEBUG
+		for (std::string s : messages) {
+			out::Log(s);
+		}
+		messages.clear();
 #endif
 	}
 }

@@ -49,8 +49,15 @@ void Game::Initialize(const std::string& bot_name)
 void Game::Play()
 {
 	while (1) {
-		Update();
-		Turn();
+		{
+			out::Stopwatch("Update");
+			Update();
+		}
+		{
+			out::Stopwatch("Turn");
+			Turn();
+		}
+		out::Stopwatch::FlushMessages();
 	}
 }
 
@@ -74,8 +81,11 @@ void Game::Update()
 void Game::Turn()
 {
 	std::vector<Command> commands;
-	
-	strategy->Execute(commands);
+
+	{
+		out::Stopwatch("Strategy Execute");
+		strategy->Execute(commands);
+	}
 
 	// End Turn
 	for (const Command& c : commands)

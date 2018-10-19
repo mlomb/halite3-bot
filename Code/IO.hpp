@@ -18,4 +18,18 @@ namespace out {
 	void Open(int bot_id);
 	void Log(const std::string& message);
 	void LogShip(int ship_id, const json& j);
+
+	class Stopwatch {
+	public:
+		Stopwatch(const std::string& identifier);
+		~Stopwatch();
+
+		static void FlushMessages();
+
+		std::string identifier;
+		std::chrono::time_point<std::chrono::high_resolution_clock> start;
+
+		static std::vector<std::string> messages;
+	};
+
 }
