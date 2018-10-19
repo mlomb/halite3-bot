@@ -66,7 +66,8 @@ namespace out {
 #ifdef DEBUG
 		if (has_opened) {
 			log_file << message << std::endl;
-		} else {
+		}
+		else {
 			if (!has_atexit) {
 				has_atexit = true;
 				atexit(dump_buffer_at_exit);
@@ -75,18 +76,28 @@ namespace out {
 		}
 #endif
 	}
-
-	void LogShip(int ship_id, const json& data)
+	
+	void LogFluorineDebug(const json& meta, const json& data)
 	{
 #ifdef DEBUG
 		Game* g = Game::Get();
 		json j = {
 			{ "turn", g->turn },
-			{ "type", "ship" },
-			{ "ship_id", ship_id },
+			{ "meta", meta },
 			{ "data", data }
 		};
 		Log("FLUORINEDEBUG " + j.dump());
+#endif
+	}
+
+	void LogShip(EntityID ship_id, const json& data)
+	{
+#ifdef DEBUG
+		json meta = {
+			{ "type", "ship" },
+			{ "ship_id", ship_id }
+		};
+		LogFluorineDebug(meta, data);
 #endif
 	}
 

@@ -11,8 +11,6 @@ Strategy::Strategy(Game* game)
 // TODO discount the cost of moving from the just mined cell
 OptimalPathResult Strategy::PathMinCost(Position start, Position end)
 {
-	//out::Log("PathMinCost from " + start.str());
-
 	auto it = minCostCache.find(start);
 	if (it != minCostCache.end()) {
 		return (*it).second.cells[end.x][end.y];
@@ -35,8 +33,6 @@ OptimalPathResult Strategy::PathMinCost(Position start, Position end)
 		r.added = false;
 		if (r.expanded) continue;
 		r.expanded = true;
-
-		//out::Log("Expanding " + p.str());
 
 		const std::vector<Direction> dirs = {
 			Direction::EAST,
@@ -114,16 +110,22 @@ double Strategy::CalculatePriority(Position start, Position destination, int shi
 
 	OptimalPathResult destCost = PathMinCost(start, destination);
 
+	double cost_threshold = 0.8;
+
 	//out::Log("Cost from: " + start.str() + " to " + destination.str() + ": " + std::to_string(destCost.haliteCost) + " in " + std::to_string(destCost.turns));
-	if (shipHalite < destCost.haliteCost)
+	if (shipHalite < destCost.haliteCost * cost_threshold)
 		return -1;
 
 	if (is_dropoff) {
+		destCost.haliteCost *= 2;
+		destCost.turns *= 2;
 		return (double)(shipHalite - destCost.haliteCost) / (double)destCost.turns;
 	}
 	else {
 		// we use dropoff to destination instead in favor of the cache
 		OptimalPathResult toDropoffCost = PathMinCost(me.shipyard_position, destination);
+		toDropoffCost.haliteCost *= 2;
+		toDropoffCost.turns *= 2;
 
 		double cost = destCost.haliteCost + toDropoffCost.haliteCost;
 		double turns_cost = destCost.turns + toDropoffCost.turns;
@@ -131,7 +133,7 @@ double Strategy::CalculatePriority(Position start, Position destination, int shi
 
 		OptimalMiningResult mineOptimal = MineMaxProfit(shipHalite, cost, turns_cost, game->map->GetCell(destination)->halite);
 
-		if (shipHalite < cost)
+		if (shipHalite < cost * cost_threshold)
 			return -1;
 
 		return mineOptimal.profit_per_turn;
@@ -161,7 +163,7 @@ void Strategy::CreateTasks()
 	for (int x = 0; x < map->width; x++) {
 		for (int y = 0; y < map->height; y++) {
 			Cell* c = map->GetCell({ x, y });
-			if (c->halite > 1 && c->pos != me.shipyard_position) {
+			if (c->halite > 20 && c->pos != me.shipyard_position) {
 				Task* t = new Task();
 				t->id = task_id++;
 				t->type = MINE;
@@ -191,6 +193,10 @@ void Strategy::AssignTasks()
 		Ship* s = shipsToAssign.front();
 		shipsToAssign.pop();
 
+#ifdef DEBUG
+		double priorityMap[64][64];
+#endif
+
 		/* PRIORITY CALCULATION */
 		const int INF = 99999999;
 
@@ -199,16 +205,26 @@ void Strategy::AssignTasks()
 		Ship* otherShipPtrOverriding = 0;
 		
 		for (Task* t : tasks) {
-			double priority = CalculatePriority(s->pos, t->pos, s->halite);
+			double priority = priority = CalculatePriority(s->pos, t->pos, s->halite);
 
 			if (t->type == DROP) {
 				OptimalPathResult r = PathMinCost(s->pos, me.shipyard_position);
-				if (suicide_stage) {
-					if (r.turns < game->remaining_turns * 0.7) {
-						priority += 100000;
-					}
+				double th = suicide_stage ? 0.0 : 0.9;
+				bool gotta_drop = s->halite + 2*r.haliteCost >= hlt::constants::MAX_HALITE * th;
+
+				if (s->dropping || gotta_drop) {
+					priority += 100000;
+					s->dropping = true;
+				}
+				else {
+					//priority = priority;
 				}
 			}
+
+			//
+#ifdef DEBUG
+			priorityMap[t->pos.x][t->pos.y] = priority;
+#endif
 
 			Ship* otherShipPtrWithLessPriority = 0;
 			if (t->IsFull()) {
@@ -233,6 +249,22 @@ void Strategy::AssignTasks()
 				otherShipPtrOverriding = otherShipPtrWithLessPriority;
 			}
 		}
+
+#ifdef DEBUG
+		json data_map;
+		for (int y = 0; y < game->map->height; y++) {
+			json data_row;
+			for (int x = 0; x < game->map->width; x++) {
+				data_row.push_back(priorityMap[x][y]);
+			}
+			data_map.push_back(data_row);
+		}
+		out::LogFluorineDebug({
+			{ "type", "priority" },
+			{ "position_x", s->pos.x },
+			{ "position_y", s->pos.y }
+		}, data_map);
+#endif
 
 		if (priorizedTask == 0) {
 			out::Log("Ship " + std::to_string(s->ship_id) + " couldn't find a suitable task");
@@ -263,7 +295,7 @@ void Strategy::AssignTasks()
 	}
 }
 
-void Strategy::ComputeMovements(std::vector<Command>& commands)
+void Strategy::Navigate(std::vector<Command>& commands)
 {
 	Player& me = game->GetMyPlayer();
 
@@ -272,14 +304,27 @@ void Strategy::ComputeMovements(std::vector<Command>& commands)
 
 	for (auto& p : me.ships) {
 		Ship* s = p.second;
+
+		if (s->dropping) {
+			if (s->pos == me.shipyard_position) {
+				s->dropping = false;
+			}
+		}
+
 		if(s->halite < floor(game->map->GetCell(s->pos)->halite * 0.1)) {
 			hits[s->pos.x][s->pos.y] = true;
 			commands.push_back(MoveCommand(s->ship_id, Direction::STILL));
 			continue;
 		}
+
+		if (s->pos == me.shipyard_position) {
+			s->task_priority += 1000000;
+		}
 		my_ships.push_back(s);
 	}
 	
+
+
 	// SORT
 	std::sort(my_ships.begin(), my_ships.end(), [](const Ship* shipPtrA, const Ship* shipPtrB) {
 		return shipPtrA->task_priority > shipPtrB->task_priority;
@@ -297,7 +342,7 @@ void Strategy::ComputeMovements(std::vector<Command>& commands)
 			Task* t = tasks[s->task_id];
 			target = t->pos;
 		}
-
+		
 		struct Option {
 			int distanceToTarget;
 			Direction direction;
@@ -305,7 +350,7 @@ void Strategy::ComputeMovements(std::vector<Command>& commands)
 
 		std::vector<Option> options;
 
-		const std::vector<Direction> dirs = {
+		std::vector<Direction> dirs = {
 			Direction::EAST,
 			Direction::WEST,
 			Direction::NORTH,
@@ -314,8 +359,12 @@ void Strategy::ComputeMovements(std::vector<Command>& commands)
 		};
 
 		for(const Direction d : dirs) {
+			Position pp = s->pos.DirectionalOffset(d);
+			pp.Wrap(game->map->width, game->map->height);
 			options.push_back(Option {
-				s->pos.DirectionalOffset(d).ToroidalDistanceTo(target, game->map->width, game->map->height),
+				//PathMinCost(target, pp).turns
+				pp.ToroidalDistanceTo(target, game->map->width, game->map->height)
+				,
 				d
 			});
 		}
@@ -329,6 +378,11 @@ void Strategy::ComputeMovements(std::vector<Command>& commands)
 			auto mov_pos = s->pos.DirectionalOffset(option.direction);
 			mov_pos.Wrap(game->map->width, game->map->height);
 
+			/*
+			if (target != me.shipyard_position && mov_pos == me.shipyard_position) { // target is NOT a dropoff and mov_pos is dropoff ignore
+				continue;
+			}
+			*/
 			if (!hits[mov_pos.x][mov_pos.y]) {
 				d = option.direction;
 				break;
@@ -342,6 +396,7 @@ void Strategy::ComputeMovements(std::vector<Command>& commands)
 
 		commands.push_back(MoveCommand(s->ship_id, d));
 	}
+
 
 
 	if (!suicide_stage && game->CanSpawnShip() && !hits[me.shipyard_position.x][me.shipyard_position.y]) {
@@ -378,7 +433,25 @@ void Strategy::Execute(std::vector<Command>& commands)
 	}
 
 	{
-		out::Stopwatch("Compute Movements");
-		ComputeMovements(commands);
+		out::Stopwatch("Navigate");
+		Navigate(commands);
 	}
+
+#ifdef DEBUG
+	for (auto& p : minCostCache) {
+		json data_map;
+		for (int y = 0; y < game->map->height; y++) {
+			json data_row;
+			for (int x = 0; x < game->map->width; x++) {
+				data_row.push_back(p.second.cells[x][y].haliteCost);
+			}
+			data_map.push_back(data_row);
+		}
+		out::LogFluorineDebug({
+			{ "type", "minCost" },
+			{ "position_x", p.first.x },
+			{ "position_y", p.first.y }
+		}, data_map);
+	}
+#endif
 }

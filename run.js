@@ -8,9 +8,9 @@ var args = [
 	'--results-as-json',
 	'--no-compression',
 	'--width',
-	'32',
+	'48',
 	'--height',
-	'32',
+	'48',
 	'--no-logs',
 	'"cd Build/Release && MyBot.exe"',
 	'"cd Build/Release && MyBot.exe"'
@@ -37,6 +37,8 @@ prc.stderr.on('data', (data) => {
 var global_replay = null;
 
 function applyDebug(i, cb) {
+	
+	
 	fs.readFile(__dirname + '/Build/Release/bot-' + i + '.log', 'utf8', function (err, data) {
 		var s = data.split('\n');
 		for(var line of s) {
@@ -44,8 +46,28 @@ function applyDebug(i, cb) {
 			if(line.startsWith(token)) {
 				line = line.substr(token.length);
 				var debuginfo = JSON.parse(line);
-				if(debuginfo.type == "ship") {
-					global_replay["full_frames"][debuginfo.turn]["entities"][i+""][debuginfo.ship_id+""].data = debuginfo.data;
+				if(debuginfo.meta.type == "ship") {
+					global_replay["full_frames"][debuginfo.turn]["entities"][i+""][debuginfo.meta.ship_id+""].data = debuginfo.data;
+				} else if(debuginfo.meta.type == "minCost") {
+					if(!global_replay["full_frames"][debuginfo.turn]["minCost"]) {
+						global_replay["full_frames"][debuginfo.turn]["minCost"] = {
+							"0": {},
+							"1": {},
+							"2": {},
+							"3": {}
+						};
+					}
+					global_replay["full_frames"][debuginfo.turn]["minCost"][i+""][debuginfo.meta.position_x+"_"+debuginfo.meta.position_y] = debuginfo.data;
+				} else if(debuginfo.meta.type == "priority") {
+					if(!global_replay["full_frames"][debuginfo.turn]["priority"]) {
+						global_replay["full_frames"][debuginfo.turn]["priority"] = {
+							"0": {},
+							"1": {},
+							"2": {},
+							"3": {}
+						};
+					}
+					global_replay["full_frames"][debuginfo.turn]["priority"][i+""][debuginfo.meta.position_x+"_"+debuginfo.meta.position_y] = debuginfo.data;
 				}
 			}
 		}

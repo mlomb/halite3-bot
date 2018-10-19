@@ -10,6 +10,8 @@
 #include "json.hpp"
 using json = nlohmann::json;
 
+#include "Types.hpp"
+
 namespace in {
 	std::string GetString();
 	std::stringstream GetSStream();
@@ -17,7 +19,8 @@ namespace in {
 namespace out {
 	void Open(int bot_id);
 	void Log(const std::string& message);
-	void LogShip(int ship_id, const json& j);
+	void LogFluorineDebug(const json& meta, const json& data);
+	void LogShip(EntityID ship_id, const json& data);
 
 	class Stopwatch {
 	public:

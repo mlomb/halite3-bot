@@ -56,7 +56,7 @@ public:
 
 	void CreateTasks();
 	void AssignTasks();
-	void ComputeMovements(std::vector<Command>& commands);
+	void Navigate(std::vector<Command>& commands);
 	void Execute(std::vector<Command>& commands);
 
 	OptimalPathResult PathMinCost(Position start, Position end);
