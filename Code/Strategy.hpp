@@ -12,7 +12,6 @@ class Game;
 enum TaskType {
 	MINE = 1,
 	DROP = 2,
-	BLOCK_ENEMY_SHIPYARD = 3
 };
 
 struct Task {
@@ -32,6 +31,7 @@ struct OptimalPathResult {
 	int turns = INF;
 	bool expanded = false;
 	bool added = false;
+	bool blocked = false;
 
 	bool operator<(const OptimalPathResult& rhs) const
 	{
@@ -59,6 +59,7 @@ public:
 	void Navigate(std::vector<Command>& commands);
 	void Execute(std::vector<Command>& commands);
 
+	void PathMinCostFromMap(Position start, OptimalPathMap& map);
 	OptimalPathResult PathMinCost(Position start, Position end);
 	OptimalMiningResult MineMaxProfit(int shipHalite, int base_haliteCost, int base_turns, int cellHalite);
 	double CalculatePriority(Position start, Position destination, int shipHalite);

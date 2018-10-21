@@ -46,10 +46,45 @@ void Player::Update(int num_ships, int num_dropoffs, int halite, Game* game)
 		}
 	}
 
+	dropoffs.clear();
+	dropoffs.push_back(shipyard_position);
 	for (int i = 0; i < num_dropoffs; i++) {
 		int dropoff_id;
-		int x;
-		int y;
-		in::GetSStream() >> dropoff_id >> x >> y;
+		Position dropoff_position;
+		in::GetSStream() >> dropoff_id >> dropoff_position.x >> dropoff_position.y;
+		dropoffs.push_back(dropoff_position);
 	}
+}
+
+bool Player::IsDropoff(const Position pos)
+{
+	for (const Position& p : dropoffs)
+		if (p == pos)
+			return true;
+	return false;
+}
+
+Position Player::ClosestDropoff(const Position pos)
+{
+	Position closest;
+	int distance = INF;
+
+	for (const Position p : dropoffs) {
+		int dist = p.ToroidalDistanceTo(pos);
+		if (dist < distance) {
+			distance = dist;
+			closest = p;
+		}
+	}
+
+	return closest;
+}
+
+Ship* Player::ShipAt(const Position pos)
+{
+	for (auto& p : ships) {
+		if (p.second->pos == pos)
+			return p.second;
+	}
+	return nullptr;
 }

@@ -8,20 +8,11 @@ Strategy::Strategy(Game* game)
 	this->game = game;
 }
 
-// TODO discount the cost of moving from the just mined cell
-OptimalPathResult Strategy::PathMinCost(Position start, Position end)
+void Strategy::PathMinCostFromMap(Position start, OptimalPathMap& map)
 {
-	auto it = minCostCache.find(start);
-	if (it != minCostCache.end()) {
-		return (*it).second.cells[end.x][end.y];
-	}
-	// not cached
-
-	OptimalPathMap map;
-
 	std::queue<Position> q;
 
-	map.cells[start.x][start.y] = { 0, 1, false, true };
+	map.cells[start.x][start.y] = { 0, 1, false, true, false };
 	q.push(start);
 
 	while (!q.empty()) {
@@ -29,7 +20,7 @@ OptimalPathResult Strategy::PathMinCost(Position start, Position end)
 		q.pop();
 
 		OptimalPathResult& r = map.cells[p.x][p.y];
-		
+
 		r.added = false;
 		if (r.expanded) continue;
 		r.expanded = true;
@@ -43,7 +34,9 @@ OptimalPathResult Strategy::PathMinCost(Position start, Position end)
 
 		for (const Direction d : dirs) {
 			Position new_pos = p.DirectionalOffset(d);
-			new_pos.Wrap(game->map->width, game->map->height);
+
+			if (map.cells[new_pos.x][new_pos.y].blocked)
+				continue;
 
 			OptimalPathResult new_state;
 
@@ -51,18 +44,42 @@ OptimalPathResult Strategy::PathMinCost(Position start, Position end)
 			new_state.turns = r.turns + 1;
 			new_state.expanded = false;
 			new_state.added = true;
+			new_state.blocked = false;
 
 			if (new_state < map.cells[new_pos.x][new_pos.y]) {
-				if(!map.cells[new_pos.x][new_pos.y].added)
+				if (!map.cells[new_pos.x][new_pos.y].added)
 					q.push(new_pos);
 				map.cells[new_pos.x][new_pos.y] = new_state;
 			}
 		}
 	}
+}
 
+// TODO discount the cost of moving from the just mined cell
+OptimalPathResult Strategy::PathMinCost(Position start, Position end)
+{
+	auto it = minCostCache.find(start);
+	if (it != minCostCache.end()) {
+		return (*it).second.cells[end.x][end.y];
+	}
+
+	// not cached
+	OptimalPathMap map = {};
+
+	PathMinCostFromMap(start, map);
 	minCostCache.emplace(start, map);
 
 	return map.cells[end.x][end.y];
+}
+
+double priorityEq(int profit, int cost, int turns) {
+	//if (profit < cost)
+	//	return -1;
+	// the CORE of the strategy
+	// (profit - cost) = earned
+	// earned / turns = profit per turn
+	// profit per turn / turns = profit per turn x turns
+	return (double)(profit - cost) / (double)(turns * turns);
 }
 
 OptimalMiningResult Strategy::MineMaxProfit(int shipHalite, int base_haliteCost, int base_turns, int cellHalite)
@@ -76,7 +93,7 @@ OptimalMiningResult Strategy::MineMaxProfit(int shipHalite, int base_haliteCost,
 	int halite_available = cellHalite;
 	int halite_acum = shipHalite;
 	for (int mining_turns = 0; mining_turns < 30; mining_turns++) {
-		double profit_per_turn = (double)(halite_acum - base_haliteCost) / (double)(base_turns + mining_turns);
+		double profit_per_turn = priorityEq(halite_acum, base_haliteCost, base_turns + mining_turns);
 
 		OptimalMiningResult possible = {
 			profit_per_turn,
@@ -109,35 +126,22 @@ double Strategy::CalculatePriority(Position start, Position destination, int shi
 	bool is_dropoff = destination == me.shipyard_position;
 
 	OptimalPathResult destCost = PathMinCost(start, destination);
-
-	double cost_threshold = 0.8;
-
+	
 	//out::Log("Cost from: " + start.str() + " to " + destination.str() + ": " + std::to_string(destCost.haliteCost) + " in " + std::to_string(destCost.turns));
-	if (shipHalite < destCost.haliteCost * cost_threshold)
-		return -1;
 
 	if (is_dropoff) {
-		destCost.haliteCost *= 2;
-		destCost.turns *= 2;
-		return (double)(shipHalite - destCost.haliteCost) / (double)destCost.turns;
+		return priorityEq(shipHalite, destCost.haliteCost, destCost.turns);
 	}
 	else {
 		// we use dropoff to destination instead in favor of the cache
 		OptimalPathResult toDropoffCost = PathMinCost(me.shipyard_position, destination);
-		toDropoffCost.haliteCost *= 2;
-		toDropoffCost.turns *= 2;
 
 		double cost = destCost.haliteCost + toDropoffCost.haliteCost;
 		double turns_cost = destCost.turns + toDropoffCost.turns;
 
 
 		OptimalMiningResult mineOptimal = MineMaxProfit(shipHalite, cost, turns_cost, game->map->GetCell(destination)->halite);
-
-		if (shipHalite < cost * cost_threshold)
-			return -1;
-
 		return mineOptimal.profit_per_turn;
-		//return (1000 - cost) / (mineOptimal.turns + turns_cost);
 	}
 }
 
@@ -153,17 +157,19 @@ void Strategy::CreateTasks()
 		delete t;
 	tasks.clear();
 
-	Task* dropTask = new Task();
-	dropTask->id = task_id++;
-	dropTask->type = DROP;
-	dropTask->pos = me.shipyard_position;
-	dropTask->max_ships = -1;
-	tasks.push_back(dropTask);
+	for (Position dropoff : me.dropoffs) {
+		Task* dropTask = new Task();
+		dropTask->id = task_id++;
+		dropTask->type = DROP;
+		dropTask->pos = dropoff;
+		dropTask->max_ships = -1;
+		tasks.push_back(dropTask);
+	}
 
 	for (int x = 0; x < map->width; x++) {
 		for (int y = 0; y < map->height; y++) {
 			Cell* c = map->GetCell({ x, y });
-			if (c->halite > 20 && c->pos != me.shipyard_position) {
+			if (c->halite > 20 && !me.IsDropoff(c->pos)) {
 				Task* t = new Task();
 				t->id = task_id++;
 				t->type = MINE;
@@ -173,8 +179,6 @@ void Strategy::CreateTasks()
 			}
 		}
 	}
-
-	// TODO Block enemy shipyard
 }
 
 void Strategy::AssignTasks()
@@ -186,7 +190,7 @@ void Strategy::AssignTasks()
 	for (auto& p : game->GetMyPlayer().ships) {
 		shipsToAssign.push(p.second);
 		p.second->task_id = -1;
-		p.second->task_priority = 0;
+		p.second->task_priority = -1;
 	}
 
 	while (!shipsToAssign.empty()) {
@@ -198,8 +202,6 @@ void Strategy::AssignTasks()
 #endif
 
 		/* PRIORITY CALCULATION */
-		const int INF = 99999999;
-
 		Task* priorizedTask = 0;
 		double maxPriority = -INF;
 		Ship* otherShipPtrOverriding = 0;
@@ -213,11 +215,14 @@ void Strategy::AssignTasks()
 				bool gotta_drop = s->halite + 2*r.haliteCost >= hlt::constants::MAX_HALITE * th;
 
 				if (s->dropping || gotta_drop) {
-					priority += 100000;
+					priority += 1000;
 					s->dropping = true;
 				}
 				else {
-					//priority = priority;
+					if(me.IsDropoff(s->pos)) // do not stay on a dropoff
+						priority = -INF;
+					else
+						priority = 0;
 				}
 			}
 
@@ -273,14 +278,7 @@ void Strategy::AssignTasks()
 
 		out::Log("Ship " + std::to_string(s->ship_id) + " assigned to task " + std::to_string(priorizedTask->id) + " (" + std::to_string(priorizedTask->type) + ") with priority " + std::to_string(maxPriority));
 		out::Log(" (where seems to be " + std::to_string(game->map->GetCell(priorizedTask->pos)->halite) + " halite) ");
-
-		out::LogShip(s->ship_id, {
-			{ "task_type", priorizedTask->type },
-			{ "task_x", priorizedTask->pos.x },
-			{ "task_y", priorizedTask->pos.y },
-			{ "task_priority", std::to_string(maxPriority) },
-		});
-
+		
 		if (otherShipPtrOverriding) {
 			out::Log("... while overriding ship " + std::to_string(otherShipPtrOverriding->ship_id) + " in " + std::to_string(otherShipPtrOverriding->task_id));
 			priorizedTask->ships.erase(otherShipPtrOverriding);
@@ -299,11 +297,13 @@ void Strategy::Navigate(std::vector<Command>& commands)
 {
 	Player& me = game->GetMyPlayer();
 
-	std::vector<Ship*> my_ships;
+	std::set<Ship*> my_ships;
 	std::vector<std::vector<bool>> hits(game->map->width, std::vector<bool>(game->map->height, false));
 
 	for (auto& p : me.ships) {
 		Ship* s = p.second;
+
+		s->navigation_processed = false;
 
 		if (s->dropping) {
 			if (s->pos == me.shipyard_position) {
@@ -320,31 +320,46 @@ void Strategy::Navigate(std::vector<Command>& commands)
 		if (s->pos == me.shipyard_position) {
 			s->task_priority += 1000000;
 		}
-		my_ships.push_back(s);
+
+
+		my_ships.insert(s);
 	}
-	
 
-
-	// SORT
-	std::sort(my_ships.begin(), my_ships.end(), [](const Ship* shipPtrA, const Ship* shipPtrB) {
-		return shipPtrA->task_priority > shipPtrB->task_priority;
-	});
+	OptimalPathMap map;
 	
-	for (Ship* s : my_ships) {
+	while (!my_ships.empty()) {
+		auto it = my_ships.begin();
+		Ship* s = *it;
+		my_ships.erase(it);
+
+		// let ships crash on dropoffs
 		if (suicide_stage) {
-			// let ships crash on dropoffs
-			hits[me.shipyard_position.x][me.shipyard_position.y] = false;
+			for (Position dropoff : me.dropoffs) {
+				hits[dropoff.x][dropoff.y] = false;
+			}
 		}
 
-		Position target = s->pos;
+		// ---------------- Navigation
+		map = {}; // reset
 
+		Position target = s->pos;
 		if (s->task_id != -1) {
 			Task* t = tasks[s->task_id];
 			target = t->pos;
+
+
+			out::LogShip(s->ship_id, {
+				{ "task_type", t->type },
+				{ "task_x", t->pos.x },
+				{ "task_y", t->pos.y },
+				{ "task_priority", std::to_string(s->task_priority) },
+			});
 		}
-		
+
+		PathMinCostFromMap(target, map);
+
 		struct Option {
-			int distanceToTarget;
+			int toTargetCost;
 			Direction direction;
 		};
 
@@ -358,31 +373,23 @@ void Strategy::Navigate(std::vector<Command>& commands)
 			Direction::STILL
 		};
 
-		for(const Direction d : dirs) {
+		for (const Direction d : dirs) {
 			Position pp = s->pos.DirectionalOffset(d);
-			pp.Wrap(game->map->width, game->map->height);
-			options.push_back(Option {
-				//PathMinCost(target, pp).turns
-				pp.ToroidalDistanceTo(target, game->map->width, game->map->height)
-				,
+			options.push_back(Option{
+				map.cells[pp.x][pp.y].turns,
 				d
 			});
 		}
 
 		std::sort(options.begin(), options.end(), [](const Option& a, const Option& b) {
-			return a.distanceToTarget < b.distanceToTarget;
+			return a.toTargetCost < b.toTargetCost;
 		});
+
 
 		Direction d = Direction::STILL;
 		for (const Option& option : options) {
 			auto mov_pos = s->pos.DirectionalOffset(option.direction);
-			mov_pos.Wrap(game->map->width, game->map->height);
 
-			/*
-			if (target != me.shipyard_position && mov_pos == me.shipyard_position) { // target is NOT a dropoff and mov_pos is dropoff ignore
-				continue;
-			}
-			*/
 			if (!hits[mov_pos.x][mov_pos.y]) {
 				d = option.direction;
 				break;
@@ -390,15 +397,21 @@ void Strategy::Navigate(std::vector<Command>& commands)
 		}
 
 		auto mov_pos = s->pos.DirectionalOffset(d);
-		mov_pos.Wrap(game->map->width, game->map->height);
-		
+
 		hits[mov_pos.x][mov_pos.y] = true;
+		s->navigation_processed = true;
+
+		Ship* shipInMovedLocation = me.ShipAt(mov_pos);
+		if (shipInMovedLocation) {
+			if (!shipInMovedLocation->navigation_processed) {
+				// this ship should be the next to process
+				shipInMovedLocation->task_priority += 1000000;
+			}
+		}
 
 		commands.push_back(MoveCommand(s->ship_id, d));
 	}
-
-
-
+	
 	if (!suicide_stage && game->CanSpawnShip() && !hits[me.shipyard_position.x][me.shipyard_position.y]) {
 		// Spawneo o no
 		/*

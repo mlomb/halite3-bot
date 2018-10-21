@@ -2,7 +2,6 @@
 
 #include "Game.hpp"
 
-
 namespace in {
 	std::string GetString()
 	{
@@ -114,7 +113,8 @@ namespace out {
 		std::chrono::duration<double> elapsed = end - start;
 		long long ms = std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count();
 
-		messages.push_back(identifier + ": " + std::to_string(ms) + "ms");
+		if (ms > 0)
+			messages.push_back(identifier + ": " + std::to_string(ms) + "ms");
 #endif
 	}
 
