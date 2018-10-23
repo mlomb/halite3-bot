@@ -500,10 +500,10 @@ void Strategy::Navigate(std::vector<Command>& commands)
 		avg_ships_per_enemies /= game->num_players - 1;
 		*/
 
-		if (me.ships.size() < 20 || me.halite >= haliteNeededForDropoffs + hlt::constants::SHIP_COST) {
-			//if (game->turn < 0.65 * hlt::constants::MAX_TURNS) {
+		if (me.halite >= haliteNeededForDropoffs + hlt::constants::SHIP_COST) {
+			if (game->turn < 0.65 * hlt::constants::MAX_TURNS) {
 				commands.push_back(SpawnCommand());
-			//}
+			}
 		}
 	}
 }
