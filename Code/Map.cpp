@@ -1,8 +1,10 @@
 #include "Map.hpp"
 
 #include "IO.hpp"
+#include "Game.hpp"
+#include "Player.hpp"
 
-Map::Map()
+Map::Map(Game* game) : game(game)
 {
 }
 
@@ -49,4 +51,37 @@ Cell* Map::GetCell(Position pos)
 	}
 #endif
 	return cells[pos.y][pos.x];
+}
+
+AreaInfo Map::GetAreaInfo(Position p, int max_manhattan_distance)
+{
+	AreaInfo info;
+
+	int affectedCells = 0;
+	info.halite = 0;
+	for (int xx = -max_manhattan_distance; xx <= max_manhattan_distance; xx++) {
+		for (int yy = -max_manhattan_distance; yy <= max_manhattan_distance; yy++) {
+			Position pos = { p.x + xx, p.y + yy };
+			if (pos.ToroidalDistanceTo(p) <= max_manhattan_distance) {
+				affectedCells++;
+				info.halite += GetCell(pos)->halite;
+			}
+		}
+	}
+	info.avgHalite = (double)info.halite / (double)affectedCells;
+
+	info.num_ally_ships = 0;
+	info.num_enemy_ships = 0;
+	for (auto& pp : game->players) {
+		for (auto& sp : pp.second.ships) {
+			if (sp.second->pos.ToroidalDistanceTo(p) <= max_manhattan_distance) {
+				if (pp.first == game->my_id)
+					info.num_ally_ships++;
+				else
+					info.num_enemy_ships++;
+			}
+		}
+	}
+
+	return info;
 }

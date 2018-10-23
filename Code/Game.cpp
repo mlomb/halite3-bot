@@ -9,7 +9,7 @@ Game::Game()
 {
 	s_Instance = this;
 	strategy = new Strategy(this);
-	map = new Map();
+	map = new Map(this);
 }
 
 Game* Game::Get()

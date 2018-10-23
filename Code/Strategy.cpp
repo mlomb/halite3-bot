@@ -123,9 +123,10 @@ double Strategy::CalculatePriority(Position start, Position destination, int shi
 {
 	Player& me = game->GetMyPlayer();
 
-	bool is_dropoff = destination == me.shipyard_position;
+	bool is_dropoff = me.IsDropoff(destination);
 
 	OptimalPathResult destCost = PathMinCost(start, destination);
+	destCost.turns *= 3;
 	
 	//out::Log("Cost from: " + start.str() + " to " + destination.str() + ": " + std::to_string(destCost.haliteCost) + " in " + std::to_string(destCost.turns));
 
@@ -134,7 +135,7 @@ double Strategy::CalculatePriority(Position start, Position destination, int shi
 	}
 	else {
 		// we use dropoff to destination instead in favor of the cache
-		OptimalPathResult toDropoffCost = PathMinCost(me.shipyard_position, destination);
+		OptimalPathResult toDropoffCost = PathMinCost(me.ClosestDropoff(destination), destination);
 
 		double cost = destCost.haliteCost + toDropoffCost.haliteCost;
 		double turns_cost = destCost.turns + toDropoffCost.turns;
@@ -169,13 +170,36 @@ void Strategy::CreateTasks()
 	for (int x = 0; x < map->width; x++) {
 		for (int y = 0; y < map->height; y++) {
 			Cell* c = map->GetCell({ x, y });
-			if (c->halite > 20 && !me.IsDropoff(c->pos)) {
-				Task* t = new Task();
-				t->id = task_id++;
-				t->type = MINE;
-				t->pos = { x, y };
-				t->max_ships = 1;
-				tasks.push_back(t);
+
+			bool is_dropoff = false;
+			for (auto& p : game->players) {
+				is_dropoff |= p.second.IsDropoff(c->pos);
+			}
+
+			if (!is_dropoff) {
+				if(c->halite > 20) {
+					Task* t = new Task();
+					t->id = task_id++;
+					t->type = MINE;
+					t->pos = { x, y };
+					t->max_ships = 1;
+					tasks.push_back(t);
+				}
+
+				//if(me.ships.size() >= 12) { // TODO remove?
+					Position drp = me.ClosestDropoff({ x, y });
+					int dist = drp.ToroidalDistanceTo({ x, y });
+					if (dist > 10) { // only create a transform dropoff task if we are more than 10 units away
+						continue;
+						Task* t = new Task();
+						t->id = task_id++;
+						t->type = TRANSFORM_INTO_DROPOFF;
+						t->pos = { x, y };
+						t->max_ships = 1;
+						t->areaInfo = map->GetAreaInfo(t->pos, 5);
+						tasks.push_back(t);
+					}
+				//}
 			}
 		}
 	}
@@ -207,28 +231,58 @@ void Strategy::AssignTasks()
 		Ship* otherShipPtrOverriding = 0;
 		
 		for (Task* t : tasks) {
-			double priority = priority = CalculatePriority(s->pos, t->pos, s->halite);
+			double priority;
+			switch (t->type) {
+			case MINE:
+			{
+				priority = CalculatePriority(s->pos, t->pos, s->halite);
+				break;
+			}
+			case DROP:
+			{
+				priority = CalculatePriority(s->pos, t->pos, s->halite);
 
-			if (t->type == DROP) {
-				OptimalPathResult r = PathMinCost(s->pos, me.shipyard_position);
+				OptimalPathResult r = PathMinCost(s->pos, me.ClosestDropoff(s->pos));
 				double th = suicide_stage ? 0.0 : 0.9;
-				bool gotta_drop = s->halite + 2*r.haliteCost >= hlt::constants::MAX_HALITE * th;
+				bool gotta_drop = s->halite + 2 * r.haliteCost >= hlt::constants::MAX_HALITE * th;
 
 				if (s->dropping || gotta_drop) {
 					priority += 1000;
 					s->dropping = true;
 				}
 				else {
-					if(me.IsDropoff(s->pos)) // do not stay on a dropoff
+					if (me.IsDropoff(s->pos)) // do not stay on a dropoff
 						priority = -INF;
 					else
 						priority = 0;
 				}
+				break;
+			}
+			case TRANSFORM_INTO_DROPOFF:
+			{
+				if (t->areaInfo.num_ally_ships >= t->areaInfo.num_enemy_ships) {
+					OptimalPathResult r = PathMinCost(s->pos, t->pos);
+
+					Position closestActualDropoff = me.ClosestDropoff(t->pos);
+					int distToClosest = closestActualDropoff.ToroidalDistanceTo(t->pos);
+
+					if (distToClosest >= 8) {
+						int cost = (hlt::constants::DROPOFF_COST + r.haliteCost) - (s->halite + game->map->GetCell(t->pos)->halite);
+						int max_possible_distance = game->map->width / 2 + game->map->height / 2;
+
+						priority = priorityEq(t->areaInfo.avgHalite * 25 * (1.0 - ((double)distToClosest / (double)max_possible_distance)), cost, r.turns);
+					}
+				}
+				break;
+			}
 			}
 
 			//
 #ifdef DEBUG
-			priorityMap[t->pos.x][t->pos.y] = priority;
+			priorityMap[t->pos.x][t->pos.y] = 0;
+			if (t->type == TRANSFORM_INTO_DROPOFF) {
+				priorityMap[t->pos.x][t->pos.y] = priority;
+			}
 #endif
 
 			Ship* otherShipPtrWithLessPriority = 0;
@@ -305,26 +359,33 @@ void Strategy::Navigate(std::vector<Command>& commands)
 
 		s->navigation_processed = false;
 
-		if (s->dropping) {
-			if (s->pos == me.shipyard_position) {
-				s->dropping = false;
+		if (me.IsDropoff(s->pos)) {
+			s->task_priority += 1000000000;
+			s->dropping = false;
+		}
+
+		bool is_going_to_create_dropoff = false;
+		if (s->task_id != -1) {
+			Task* t = tasks[s->task_id];
+			if (t->type == TRANSFORM_INTO_DROPOFF) {
+				if (t->pos == s->pos) {
+					is_going_to_create_dropoff = true;
+				}
 			}
 		}
 
-		if(s->halite < floor(game->map->GetCell(s->pos)->halite * 0.1)) {
+		if(s->halite < floor(game->map->GetCell(s->pos)->halite * 0.1) && !is_going_to_create_dropoff) {
 			hits[s->pos.x][s->pos.y] = true;
+			s->navigation_processed = true;
 			commands.push_back(MoveCommand(s->ship_id, Direction::STILL));
 			continue;
-		}
-
-		if (s->pos == me.shipyard_position) {
-			s->task_priority += 1000000;
 		}
 
 
 		my_ships.insert(s);
 	}
 
+	int going_to_transform_dropoffs = 0;
 	OptimalPathMap map;
 	
 	while (!my_ships.empty()) {
@@ -347,6 +408,18 @@ void Strategy::Navigate(std::vector<Command>& commands)
 			Task* t = tasks[s->task_id];
 			target = t->pos;
 
+			if (t->type == TRANSFORM_INTO_DROPOFF) {
+				going_to_transform_dropoffs++;
+				if (t->pos == s->pos) {
+					if (me.halite >= hlt::constants::DROPOFF_COST) {
+						commands.push_back(TransformShipIntoDropoffCommand(s->ship_id));
+						me.halite -= hlt::constants::DROPOFF_COST;
+						going_to_transform_dropoffs--;
+						s->navigation_processed = true;
+						continue;
+					}
+				}
+			}
 
 			out::LogShip(s->ship_id, {
 				{ "task_type", t->type },
@@ -369,9 +442,11 @@ void Strategy::Navigate(std::vector<Command>& commands)
 			Direction::EAST,
 			Direction::WEST,
 			Direction::NORTH,
-			Direction::SOUTH,
-			Direction::STILL
+			Direction::SOUTH
 		};
+		if(!me.IsDropoff(s->pos)) {
+			dirs.push_back(Direction::STILL);
+		}
 
 		for (const Direction d : dirs) {
 			Position pp = s->pos.DirectionalOffset(d);
@@ -404,13 +479,16 @@ void Strategy::Navigate(std::vector<Command>& commands)
 		Ship* shipInMovedLocation = me.ShipAt(mov_pos);
 		if (shipInMovedLocation) {
 			if (!shipInMovedLocation->navigation_processed) {
-				// this ship should be the next to process
-				shipInMovedLocation->task_priority += 1000000;
+				// this ship should be the next to be processed
+				shipInMovedLocation->task_priority += 100000;
 			}
 		}
 
 		commands.push_back(MoveCommand(s->ship_id, d));
 	}
+
+	going_to_transform_dropoffs = std::min(1, going_to_transform_dropoffs);
+	int haliteNeededForDropoffs = going_to_transform_dropoffs * hlt::constants::DROPOFF_COST;
 	
 	if (!suicide_stage && game->CanSpawnShip() && !hits[me.shipyard_position.x][me.shipyard_position.y]) {
 		// Spawneo o no
@@ -422,8 +500,10 @@ void Strategy::Navigate(std::vector<Command>& commands)
 		avg_ships_per_enemies /= game->num_players - 1;
 		*/
 
-		if (game->turn < 0.65 * hlt::constants::MAX_TURNS) {
-			commands.push_back(SpawnCommand());
+		if (me.ships.size() < 20 || me.halite >= haliteNeededForDropoffs + hlt::constants::SHIP_COST) {
+			//if (game->turn < 0.65 * hlt::constants::MAX_TURNS) {
+				commands.push_back(SpawnCommand());
+			//}
 		}
 	}
 }
@@ -431,7 +511,15 @@ void Strategy::Navigate(std::vector<Command>& commands)
 
 void Strategy::Execute(std::vector<Command>& commands)
 {
-	suicide_stage = game->turn > std::max(0.95 * hlt::constants::MAX_TURNS, hlt::constants::MAX_TURNS - game->map->width * 0.6);
+	Player& me = game->GetMyPlayer();
+	int min_turns = 0;
+	for (auto& p : me.ships) {
+		if (p.second->halite > 50) {
+			int dist = p.second->pos.ToroidalDistanceTo(me.ClosestDropoff(p.second->pos));
+			min_turns = std::max(min_turns, dist);
+		}
+	}
+	suicide_stage = game->turn >= std::min((int)(0.95 * hlt::constants::MAX_TURNS), hlt::constants::MAX_TURNS - (int)(min_turns * 1.1));
 
 	minCostCache.clear();
 

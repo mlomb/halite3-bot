@@ -6,3 +6,4 @@
 
 Command SpawnCommand();
 Command MoveCommand(EntityID id, Direction direction);
+Command TransformShipIntoDropoffCommand(EntityID id);

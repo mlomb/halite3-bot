@@ -6,12 +6,14 @@
 
 #include "Command.hpp"
 #include "Player.hpp"
+#include "Map.hpp"
 
 class Game;
 
 enum TaskType {
 	MINE = 1,
 	DROP = 2,
+	TRANSFORM_INTO_DROPOFF = 3
 };
 
 struct Task {
@@ -24,6 +26,9 @@ struct Task {
 	bool IsFull() {
 		return max_ships != -1 && (int)ships.size() >= max_ships;
 	}
+
+	// TRANSFORM_INTO_DROPOFF
+	AreaInfo areaInfo;
 };
 
 struct OptimalPathResult {
