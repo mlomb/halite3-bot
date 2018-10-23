@@ -9,6 +9,7 @@ class Game;
 struct Cell {
 	Position pos;
 	int halite;
+	bool inspiration;
 };
 
 struct AreaInfo {

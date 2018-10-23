@@ -18,11 +18,6 @@ struct Ship {
 	double task_priority = 0;
 	bool navigation_processed = false;
 	bool dropping = false;
-
-	const bool operator<(const Ship* other) const
-	{
-		return task_priority > other->task_priority;
-	}
 };
 
 class Player {
@@ -42,4 +37,6 @@ public:
 	
 	std::map<EntityID, Ship*> ships;
 	std::vector<Position> dropoffs;
+
+	static void SortByTaskPriority(std::vector<Ship*>& ships);
 };

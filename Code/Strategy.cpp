@@ -82,7 +82,7 @@ double priorityEq(int profit, int cost, int turns) {
 	return (double)(profit - cost) / (double)(turns * turns);
 }
 
-OptimalMiningResult Strategy::MineMaxProfit(int shipHalite, int base_haliteCost, int base_turns, int cellHalite)
+OptimalMiningResult Strategy::MineMaxProfit(int shipHalite, int base_haliteCost, int base_turns, int cellHalite, bool cellInspired)
 {
 	OptimalMiningResult best = {
 		0,
@@ -109,6 +109,9 @@ OptimalMiningResult Strategy::MineMaxProfit(int shipHalite, int base_haliteCost,
 		}
 
 		int mined = ceil((1.0 / hlt::constants::EXTRACT_RATIO) * halite_available);
+		if (cellInspired) {
+			mined *= hlt::constants::INSPIRED_BONUS_MULTIPLIER + 1;
+		}
 		halite_acum += mined;
 		halite_acum = std::min(halite_acum, hlt::constants::MAX_HALITE);
 		halite_available -= mined;
@@ -137,11 +140,11 @@ double Strategy::CalculatePriority(Position start, Position destination, int shi
 		// we use dropoff to destination instead in favor of the cache
 		OptimalPathResult toDropoffCost = PathMinCost(me.ClosestDropoff(destination), destination);
 
-		double cost = destCost.haliteCost + toDropoffCost.haliteCost;
-		double turns_cost = destCost.turns + toDropoffCost.turns;
+		double cost = destCost.haliteCost + toDropoffCost.haliteCost * 0.3;
+		double turns_cost = destCost.turns + toDropoffCost.turns * 0.3;
 
-
-		OptimalMiningResult mineOptimal = MineMaxProfit(shipHalite, cost, turns_cost, game->map->GetCell(destination)->halite);
+		const Cell* c = game->map->GetCell(destination);
+		OptimalMiningResult mineOptimal = MineMaxProfit(shipHalite, cost, turns_cost, c->halite, c->inspiration);
 		return mineOptimal.profit_per_turn;
 	}
 }
@@ -280,7 +283,7 @@ void Strategy::AssignTasks()
 			//
 #ifdef DEBUG
 			priorityMap[t->pos.x][t->pos.y] = 0;
-			if (t->type == TRANSFORM_INTO_DROPOFF) {
+			if (t->type != TRANSFORM_INTO_DROPOFF) {
 				priorityMap[t->pos.x][t->pos.y] = priority;
 			}
 #endif
@@ -351,8 +354,18 @@ void Strategy::Navigate(std::vector<Command>& commands)
 {
 	Player& me = game->GetMyPlayer();
 
-	std::set<Ship*> my_ships;
+	std::vector<Ship*> my_ships;
 	std::vector<std::vector<bool>> hits(game->map->width, std::vector<bool>(game->map->height, false));
+
+	// fill hit map with enemies
+	for(auto& ep : game->players) {
+		Player& enemy_player = ep.second;
+		if (enemy_player.id == me.id) continue;
+		for (Position ed : enemy_player.dropoffs)
+			hits[ed.x][ed.y] = true;
+		for (auto& es : enemy_player.ships)
+			hits[es.second->pos.x][es.second->pos.y] = true;
+	}
 
 	for (auto& p : me.ships) {
 		Ship* s = p.second;
@@ -360,8 +373,32 @@ void Strategy::Navigate(std::vector<Command>& commands)
 		s->navigation_processed = false;
 
 		if (me.IsDropoff(s->pos)) {
-			s->task_priority += 1000000000;
 			s->dropping = false;
+
+			// if there is a ship on a dropoff
+			// the ship that have the most priority at the sides
+			// should execute first
+			// then the chain will continue
+
+			std::vector<Ship*> ships_side_dropoff;
+			std::vector<Direction> dirs = {
+				Direction::EAST,
+				Direction::WEST,
+				Direction::NORTH,
+				Direction::SOUTH
+			};
+			for (const Direction d : dirs) {
+				Position pp = s->pos.DirectionalOffset(d);
+				Ship* s = me.ShipAt(pp);
+				if(s)
+					ships_side_dropoff.push_back(s);
+			}
+			Player::SortByTaskPriority(ships_side_dropoff);
+			if (ships_side_dropoff.size() != 0) {
+				// let the ship with more priority move first
+				(*ships_side_dropoff.begin())->task_priority += 1000000000;
+			}
+			s->task_priority += 1000000; // in the case the chain doesnt pick it up
 		}
 
 		bool is_going_to_create_dropoff = false;
@@ -382,13 +419,15 @@ void Strategy::Navigate(std::vector<Command>& commands)
 		}
 
 
-		my_ships.insert(s);
+		my_ships.push_back(s);
 	}
 
 	int going_to_transform_dropoffs = 0;
 	OptimalPathMap map;
 	
 	while (!my_ships.empty()) {
+		Player::SortByTaskPriority(my_ships);
+
 		auto it = my_ships.begin();
 		Ship* s = *it;
 		my_ships.erase(it);
@@ -401,8 +440,6 @@ void Strategy::Navigate(std::vector<Command>& commands)
 		}
 
 		// ---------------- Navigation
-		map = {}; // reset
-
 		Position target = s->pos;
 		if (s->task_id != -1) {
 			Task* t = tasks[s->task_id];
@@ -429,6 +466,13 @@ void Strategy::Navigate(std::vector<Command>& commands)
 			});
 		}
 
+		map = {}; // reset
+		// fill map with hits
+		for (int x = 0; x < game->map->width; x++) {
+			for (int y = 0; y < game->map->height; y++) {
+				map.cells[x][y].blocked = hits[x][y];
+			}
+		}
 		PathMinCostFromMap(target, map);
 
 		struct Option {

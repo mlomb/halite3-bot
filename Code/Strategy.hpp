@@ -66,7 +66,7 @@ public:
 
 	void PathMinCostFromMap(Position start, OptimalPathMap& map);
 	OptimalPathResult PathMinCost(Position start, Position end);
-	OptimalMiningResult MineMaxProfit(int shipHalite, int base_haliteCost, int base_turns, int cellHalite);
+	OptimalMiningResult MineMaxProfit(int shipHalite, int base_haliteCost, int base_turns, int cellHalite, bool cellInspired);
 	double CalculatePriority(Position start, Position destination, int shipHalite);
 
 	Game* game;

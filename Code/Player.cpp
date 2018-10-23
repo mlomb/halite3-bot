@@ -88,3 +88,10 @@ Ship* Player::ShipAt(const Position pos)
 	}
 	return nullptr;
 }
+
+void Player::SortByTaskPriority(std::vector<Ship*>& ships)
+{
+	std::sort(ships.begin(), ships.end(), [](const Ship* a, const Ship* b) {
+		return a->task_priority > b->task_priority;
+	});
+}
