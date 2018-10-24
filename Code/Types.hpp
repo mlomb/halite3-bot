@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <vector>
 #include <stdlib.h>
 #include <algorithm>
 
@@ -16,6 +17,13 @@ enum class Direction : char {
 	SOUTH = 's',
 	WEST = 'w',
 	STILL = 'o',
+};
+
+const std::vector<Direction> DIRECTIONS = {
+	Direction::EAST,
+	Direction::WEST,
+	Direction::NORTH,
+	Direction::SOUTH
 };
 
 struct Position {

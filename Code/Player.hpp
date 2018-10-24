@@ -8,10 +8,13 @@
 class Game;
 
 struct Ship {
-	bool dead;
 	EntityID ship_id;
 	Position pos;
 	int halite;
+	bool dead;
+
+	double priority;
+	Position target;
 
 	// STRATEGY-SPECIFIC
 	int task_id = 0;

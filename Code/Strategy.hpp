@@ -7,6 +7,7 @@
 #include "Command.hpp"
 #include "Player.hpp"
 #include "Map.hpp"
+#include "Navigation.hpp"
 
 class Game;
 
@@ -31,24 +32,6 @@ struct Task {
 	AreaInfo areaInfo;
 };
 
-struct OptimalPathResult {
-	int haliteCost = INF;
-	int turns = INF;
-	bool expanded = false;
-	bool added = false;
-	bool blocked = false;
-
-	bool operator<(const OptimalPathResult& rhs) const
-	{
-		if (haliteCost == rhs.haliteCost)
-			return turns < rhs.turns;
-		else
-			return haliteCost < rhs.haliteCost;
-	}
-};
-struct OptimalPathMap {
-	OptimalPathResult cells[64][64];
-};
 struct OptimalMiningResult {
 	double profit_per_turn;
 	int haliteMined;
@@ -61,16 +44,20 @@ public:
 
 	void CreateTasks();
 	void AssignTasks();
-	void Navigate(std::vector<Command>& commands);
 	void Execute(std::vector<Command>& commands);
 
-	void PathMinCostFromMap(Position start, OptimalPathMap& map);
-	OptimalPathResult PathMinCost(Position start, Position end);
+	void FixTasks();
+	void PrepareNavigate(std::vector<Command>& commands);
+
 	OptimalMiningResult MineMaxProfit(int shipHalite, int base_haliteCost, int base_turns, int cellHalite, bool cellInspired);
 	double CalculatePriority(Position start, Position destination, int shipHalite);
 
+	Ship* GetShipWithHighestPriority(std::vector<Ship*>& ships);
+
 	Game* game;
+	Navigation* navigation;
 	std::vector<Task*> tasks;
+	std::vector<Ship*> shipsAvailable;
 	std::map<Position, OptimalPathMap> minCostCache;
 
 	bool suicide_stage;

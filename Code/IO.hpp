@@ -30,7 +30,7 @@ namespace out {
 		static void FlushMessages();
 
 		std::string identifier;
-		std::chrono::time_point<std::chrono::high_resolution_clock> start;
+		std::chrono::time_point<std::chrono::system_clock> start;
 
 		static std::vector<std::string> messages;
 	};

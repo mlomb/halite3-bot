@@ -103,18 +103,17 @@ namespace out {
 
 	Stopwatch::Stopwatch(const std::string& identifier) : identifier(identifier) {
 #ifdef DEBUG
-		start = std::chrono::high_resolution_clock::now();
+		start = std::chrono::system_clock::now();
 #endif
 	}
 
 	Stopwatch::~Stopwatch() {
 #ifdef DEBUG
-		auto end = std::chrono::high_resolution_clock::now();
+		auto end = std::chrono::system_clock::now();
 		std::chrono::duration<double> elapsed = end - start;
 		long long ms = std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count();
 
-		if (ms > 0)
-			messages.push_back(identifier + ": " + std::to_string(ms) + "ms");
+		messages.push_back(identifier + ": " + std::to_string(ms) + "ms");
 #endif
 	}
 
