@@ -50,11 +50,11 @@ void Game::Play()
 {
 	while (1) {
 		{
-			out::Stopwatch("Update");
+			out::Stopwatch s("Update");
 			Update();
 		}
 		{
-			out::Stopwatch("Turn");
+			out::Stopwatch s("Turn");
 			Turn();
 		}
 		out::Stopwatch::FlushMessages();
@@ -84,7 +84,7 @@ void Game::Turn()
 	std::vector<Command> commands;
 
 	{
-		out::Stopwatch("Strategy Execute");
+		out::Stopwatch s("Strategy Execute");
 		strategy->Execute(commands);
 	}
 

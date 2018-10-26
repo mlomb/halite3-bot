@@ -145,13 +145,13 @@ void Navigation::Navigate(std::vector<Ship*> ships, std::vector<Command>& comman
 
 		for (const Direction d : dirs) {
 			Position pp = s->pos.DirectionalOffset(d);
-			bool getting_closer = pp.ToroidalDistanceTo(target) <= target_dist;
 			double optionCost;
-			if (getting_closer) {
-				optionCost = map.cells[pp.x][pp.y].haliteCost;
+			if (map.cells[pp.x][pp.y].blocked) {
+				optionCost = 99999999;
 			}
 			else {
-				optionCost = 99999999;
+				//bool getting_closer = pp.ToroidalDistanceTo(target) <= target_dist;
+				optionCost = map.cells[pp.x][pp.y].turns * 100 + map.cells[pp.x][pp.y].haliteCost;
 			}
 
 			options.push_back(Option{

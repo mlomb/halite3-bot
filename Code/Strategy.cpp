@@ -88,7 +88,7 @@ double Strategy::CalculatePriority(Position start, Position destination, int shi
 
 void Strategy::CreateTasks()
 {
-	out::Stopwatch("Create Tasks");
+	out::Stopwatch s("Create Tasks");
 
 	Map* map = game->map;
 
@@ -149,7 +149,7 @@ void Strategy::CreateTasks()
 
 void Strategy::AssignTasks()
 {
-	out::Stopwatch("Assign Tasks");
+	out::Stopwatch s("Assign Tasks");
 
 	Player& me = game->GetMyPlayer();
 
@@ -339,7 +339,7 @@ void Strategy::Execute(std::vector<Command>& commands)
 	*/
 
 	{
-		out::Stopwatch("Navigate");
+		out::Stopwatch s("Navigate");
 		FixTasks();
 		PrepareNavigate(commands);
 	}
@@ -392,6 +392,7 @@ void Strategy::PrepareNavigate(std::vector<Command>& commands)
 	Player& me = game->GetMyPlayer();
 	
 	// Adjust priorities
+	/*
 	for (Ship* s : shipsAvailable) {
 		if (me.IsDropoff(s->pos)) {
 			// if there is a ship on a dropoff
@@ -412,6 +413,7 @@ void Strategy::PrepareNavigate(std::vector<Command>& commands)
 			}
 		}
 	}
+	*/
 
 	navigation->Navigate(shipsAvailable, commands);
 }
