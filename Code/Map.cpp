@@ -69,7 +69,7 @@ void Map::Update()
 
 Cell* Map::GetCell(Position pos)
 {
-#ifdef DEBUG
+#ifdef HALITE_LOCAL
 	if (pos.x < 0 || pos.y < 0 || pos.x >= width || pos.y >= height) {
 		out::Log("GetCell out of bounds: " + pos.str() + " -- Crash incoming");
 	}

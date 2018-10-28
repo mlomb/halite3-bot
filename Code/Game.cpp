@@ -77,6 +77,13 @@ void Game::Update()
 	}
 
 	map->Update();
+
+	Player& me = players[my_id];
+
+	out::Log("Halite: " + std::to_string(me.halite));
+	out::Log("Ships: " + std::to_string(me.ships.size()));
+	out::Log("-----");
+
 }
 
 void Game::Turn()

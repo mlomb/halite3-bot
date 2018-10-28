@@ -6,6 +6,7 @@
 #include "Types.hpp"
 
 class Game;
+class Task;
 
 struct Ship {
 	EntityID ship_id;
@@ -13,13 +14,11 @@ struct Ship {
 	int halite;
 	bool dead;
 
+	Task* task;
 	double priority;
 	Position target;
 
 	// STRATEGY-SPECIFIC
-	int task_id = 0;
-	double task_priority = 0;
-	bool navigation_processed = false;
 	bool dropping = false;
 };
 

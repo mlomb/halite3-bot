@@ -2,12 +2,13 @@
 
 #include "Game.hpp"
 
-#ifdef DEBUG
+#ifdef HALITE_LOCAL
 #include <Windows.h>
 #endif
 
+
 int main() {
-#ifdef DEBUG
+#ifdef HALITE_LOCAL
 	//Sleep(20 * 1000);
 #endif
 

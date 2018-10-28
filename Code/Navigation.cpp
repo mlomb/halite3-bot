@@ -76,6 +76,8 @@ OptimalPathCell Navigation::PathMinCost(Position start, Position end)
 
 void Navigation::Clear()
 {
+	Player& me = game->GetMyPlayer();
+
 	minCostCache.clear();
 
 	for (int x = 0; x < game->map->width; x++) {
@@ -91,8 +93,9 @@ void Navigation::Clear()
 
 		for (Position ed : enemy_player.dropoffs)
 			hits[ed.x][ed.y] = true;
-		for (auto& es : enemy_player.ships)
-			hits[es.second->pos.x][es.second->pos.y] = true;
+		for (auto& es : enemy_player.ships) {
+			hits[es.second->pos.x][es.second->pos.y] = !me.IsDropoff(es.second->pos);
+		}
 	}
 }
 
@@ -115,6 +118,8 @@ void Navigation::InitMap(OptimalPathMap& map)
 
 void Navigation::Navigate(std::vector<Ship*> ships, std::vector<Command>& commands)
 {
+	out::Stopwatch s("Navigate");
+
 	Player& me = game->GetMyPlayer();
 
 	OptimalPathMap map;

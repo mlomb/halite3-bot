@@ -29,7 +29,7 @@ namespace out {
 	static bool has_atexit = false;
 
 	void dump_buffer_at_exit() {
-#ifdef DEBUG
+#ifdef HALITE_LOCAL
 		if (has_opened) {
 			return;
 		}
@@ -44,7 +44,7 @@ namespace out {
 
 	void Open(int bot_id)
 	{
-#ifdef DEBUG
+#ifdef HALITE_LOCAL
 		if (has_opened) {
 			out::Log("Error: log: tried to open(" + std::to_string(bot_id) + ") but we have already opened before.");
 			exit(1);
@@ -62,7 +62,7 @@ namespace out {
 
 	void Log(const std::string& message)
 	{
-#ifdef DEBUG
+#ifdef HALITE_LOCAL
 		if (has_opened) {
 			log_file << message << std::endl;
 		}
@@ -78,7 +78,7 @@ namespace out {
 	
 	void LogFluorineDebug(const json& meta, const json& data)
 	{
-#ifdef DEBUG
+#ifdef HALITE_LOCAL
 		Game* g = Game::Get();
 		json j = {
 			{ "turn", g->turn },
@@ -91,7 +91,7 @@ namespace out {
 
 	void LogShip(EntityID ship_id, const json& data)
 	{
-#ifdef DEBUG
+#ifdef HALITE_LOCAL
 		json meta = {
 			{ "type", "ship" },
 			{ "ship_id", ship_id }
@@ -102,13 +102,13 @@ namespace out {
 
 
 	Stopwatch::Stopwatch(const std::string& identifier) : identifier(identifier) {
-#ifdef DEBUG
+#ifdef HALITE_LOCAL
 		start = std::chrono::system_clock::now();
 #endif
 	}
 
 	Stopwatch::~Stopwatch() {
-#ifdef DEBUG
+#ifdef HALITE_LOCAL
 		auto end = std::chrono::system_clock::now();
 		std::chrono::duration<double> elapsed = end - start;
 		long long ms = std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count();
@@ -118,7 +118,7 @@ namespace out {
 	}
 
 	void Stopwatch::FlushMessages() {
-#ifdef DEBUG
+#ifdef HALITE_LOCAL
 		for (std::string s : messages) {
 			out::Log(s);
 		}

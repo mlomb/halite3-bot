@@ -18,18 +18,14 @@ enum TaskType {
 };
 
 struct Task {
-	int id;
 	TaskType type;
 	Position pos;
-	std::set<Ship*> ships;
-	int max_ships;
-
-	bool IsFull() {
-		return max_ships != -1 && (int)ships.size() >= max_ships;
-	}
 
 	// TRANSFORM_INTO_DROPOFF
 	AreaInfo areaInfo;
+
+	// Misc --
+	int dist_to_dropoff;
 };
 
 struct OptimalMiningResult {
@@ -46,11 +42,9 @@ public:
 	void AssignTasks();
 	void Execute(std::vector<Command>& commands);
 
-	void FixTasks();
-	void PrepareNavigate(std::vector<Command>& commands);
-
 	OptimalMiningResult MineMaxProfit(int shipHalite, int base_haliteCost, int base_turns, int cellHalite, bool cellInspired);
 	double CalculatePriority(Position start, Position destination, int shipHalite);
+	double ShipTaskPriority(Ship* s, Task* t);
 
 	Ship* GetShipWithHighestPriority(std::vector<Ship*>& ships);
 
