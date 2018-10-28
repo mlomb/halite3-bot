@@ -42,7 +42,7 @@ double Strategy::ShipTaskPriority(Ship* s, Task* t)
 				
 				double possible_priority = profit / combined.ratio();
 
-				possible_priority += game->map->GetAreaInfo(t->pos, 4).avgHalite / 10000.0;
+				possible_priority += c->near_info.avgHalite / 10000.0;
 				/// -----------------------
 
 				if (possible_priority > max_priority) {

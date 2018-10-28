@@ -42,27 +42,14 @@ void Map::Update()
 		GetCell(pos)->halite = halite;
 	}
 
-	// calc inspiration
+	// calc inspiration & near avg
 	for (int y = 0; y < height; y++) {
 		for (int x = 0; x < width; x++) {
 			Position p = { x, y };
 			Cell* c = GetCell(p);
 
-			int near_enemies = 0;
-
-			for (auto& pp : game->players) {
-				if (pp.first != game->my_id) {
-					for (auto& sp : pp.second.ships) {
-							if (sp.second->pos.ToroidalDistanceTo(p) <= hlt::constants::INSPIRATION_RADIUS) {
-								near_enemies++;
-							}
-						if (near_enemies == hlt::constants::INSPIRATION_SHIP_COUNT) break;
-					}
-					if (near_enemies == hlt::constants::INSPIRATION_SHIP_COUNT) break;
-				}
-			}
-
-			c->inspiration = near_enemies >= hlt::constants::INSPIRATION_SHIP_COUNT;
+			c->near_info = GetAreaInfo(p, hlt::constants::INSPIRATION_RADIUS);
+			c->inspiration = c->near_info.num_enemy_ships >= hlt::constants::INSPIRATION_SHIP_COUNT;
 		}
 	}
 }

@@ -6,17 +6,18 @@
 
 class Game;
 
-struct Cell {
-	Position pos;
-	int halite;
-	bool inspiration;
-};
-
 struct AreaInfo {
 	int halite;
 	double avgHalite;
 	int num_ally_ships;
 	int num_enemy_ships;
+};
+
+struct Cell {
+	Position pos;
+	int halite;
+	bool inspiration;
+	AreaInfo near_info;
 };
 
 class Map {
