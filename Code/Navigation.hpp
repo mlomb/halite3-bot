@@ -18,7 +18,7 @@ struct OptimalPathCell {
 	bool blocked = false;
 
 	double ratio() const {
-		return haliteCost + (turns * 100);
+		return haliteCost + (turns * 10);
 	}
 
 	bool operator<(const OptimalPathCell& rhs) const

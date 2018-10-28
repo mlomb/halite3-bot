@@ -171,7 +171,12 @@ void Navigation::Navigate(std::vector<Ship*> ships, std::vector<Command>& comman
 				optionCost = 99999999;
 			}
 			else {
-				optionCost = map.cells[pp.x][pp.y].ratio();
+				if (strategy->suicide_stage) {
+					optionCost = map.cells[pp.x][pp.y].turns * 10000 + map.cells[pp.x][pp.y].haliteCost;
+				}
+				else {
+					optionCost = map.cells[pp.x][pp.y].ratio();
+				}
 			}
 
 			options.push_back(Option{

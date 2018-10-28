@@ -3,9 +3,6 @@
 #include "Game.hpp"
 #include "Navigation.hpp"
 
-#include "munkres/munkres.h"
-#include "munkres/matrix.h"
-
 Strategy::Strategy(Game* game)
 {
 	this->game = game;
@@ -121,7 +118,7 @@ void Strategy::CreateTasks()
 	}
 
 	// Filter tasks to prevent timeout
-	const int MAX_TASKS = 800;
+	const int MAX_TASKS = 9999999999;
 
 	if (tasks.size() > MAX_TASKS) {
 		for (Task* t : tasks) {
@@ -145,64 +142,56 @@ void Strategy::AssignTasks()
 
 	Player& me = game->GetMyPlayer();
 
-	int ships_num = shipsAvailable.size(), tasks_num = tasks.size();
+	struct Edge {
+		double priority;
+		Ship* s;
+		Task* t;
+	};
 
-	if (ships_num == 0 || tasks_num == 0) return;
+	std::vector<Edge> edges;
 
-	Matrix<double> priorityMatrix(ships_num, tasks_num);
-
-	for (int r = 0; r < ships_num; r++) {
-		Ship* s = shipsAvailable[r];
-
-		if (s->priority == -1)
-			continue;
-
-		for (int t = 0; t < tasks_num; t++) {
-			priorityMatrix(r, t) = BIG_NUM - ShipTaskPriority(s, tasks[t]);
-		}
-	}
-
-	Munkres<double> m;
-	Matrix<double> result = priorityMatrix;
 	{
-		out::Stopwatch s("Munkres solve");
-		m.solve(result);
-	}
+		out::Stopwatch s("Edge creation");
+		for (Ship* s : shipsAvailable) {
+			if (s->priority == -1)
+				continue;
 
-	for (int r = 0; r < ships_num; r++) {
-		Ship* s = shipsAvailable[r];
-
-		if (s->priority == -1)
-			continue;
-
-		int task_i = -1;
-		for (int t = 0; t < tasks_num; t++) {
-			if(result(r, t) == 0) {
-				task_i = t;
-				break;
+			for (Task* t : tasks) {
+				edges.push_back({
+					ShipTaskPriority(s, t),
+					s,
+					t
+				});
 			}
 		}
+	}
 
-		if (task_i != -1) {
-			Task* t = tasks[task_i];
+	{
+		out::Stopwatch s("Edge sorting (" + std::to_string(edges.size()) + ")");
 
-			s->task = t;
-			s->target = t->pos;
-			s->priority = -(priorityMatrix(r, task_i) - BIG_NUM);
+		std::sort(edges.begin(), edges.end(), [](const Edge& a, const Edge& b) {
+			return a.priority > b.priority;
+		});
+	}
+
+	{
+		out::Stopwatch s("Edge assignment");
+
+		for (Edge& e : edges) {
+			if (e.t->assigned || e.s->task != 0) continue;
+
+			e.s->task = e.t;
+			e.s->target = e.t->pos;
+			e.s->priority = e.priority;
 
 #ifdef HALITE_LOCAL
-			out::LogShip(s->ship_id, {
-				{ "task_type", t->type },
-				{ "task_x", s->target.x },
-				{ "task_y", s->target.y },
-				{ "task_priority", std::to_string(s->priority) },
+			out::LogShip(e.s->ship_id, {
+				{ "task_type", e.t->type },
+				{ "task_x", e.s->target.x },
+				{ "task_y", e.s->target.y },
+				{ "task_priority", std::to_string(e.s->priority) },
 				});
 #endif
-		}
-		else {
-			// no tasks, prob end game
-			// go to base
-			s->target = me.ClosestDropoff(s->pos);
 		}
 	}
 }

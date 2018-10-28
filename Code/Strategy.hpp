@@ -25,6 +25,7 @@ struct Task {
 	AreaInfo areaInfo;
 
 	// Misc --
+	bool assigned = false;
 	int dist_to_dropoff;
 };
 
