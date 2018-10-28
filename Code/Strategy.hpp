@@ -28,12 +28,6 @@ struct Task {
 	int dist_to_dropoff;
 };
 
-struct OptimalMiningResult {
-	double profit_per_turn;
-	int haliteMined;
-	int turns;
-};
-
 class Strategy {
 public:
 	Strategy(Game* game);
@@ -42,8 +36,6 @@ public:
 	void AssignTasks();
 	void Execute(std::vector<Command>& commands);
 
-	OptimalMiningResult MineMaxProfit(int shipHalite, int base_haliteCost, int base_turns, int cellHalite, bool cellInspired);
-	double CalculatePriority(Position start, Position destination, int shipHalite);
 	double ShipTaskPriority(Ship* s, Task* t);
 
 	Ship* GetShipWithHighestPriority(std::vector<Ship*>& ships);

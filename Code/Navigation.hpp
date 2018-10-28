@@ -17,12 +17,13 @@ struct OptimalPathCell {
 	bool added = false;
 	bool blocked = false;
 
+	double ratio() const {
+		return haliteCost + (turns * 100);
+	}
+
 	bool operator<(const OptimalPathCell& rhs) const
 	{
-		if (haliteCost == rhs.haliteCost)
-			return turns < rhs.turns;
-		else
-			return haliteCost < rhs.haliteCost;
+		return ratio() < rhs.ratio();
 	}
 };
 struct OptimalPathMap {

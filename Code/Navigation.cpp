@@ -12,7 +12,7 @@ void Navigation::PathMinCostFromMap(Position start, OptimalPathMap& map)
 {
 	std::queue<Position> q;
 
-	map.cells[start.x][start.y] = { 0, 1, false, true, false };
+	map.cells[start.x][start.y] = { 0, 0, false, true, false };
 	q.push(start);
 
 	while (!q.empty()) {
@@ -43,7 +43,7 @@ void Navigation::PathMinCostFromMap(Position start, OptimalPathMap& map)
 			new_state.blocked = false;
 
 			if (map.cells[new_pos.x][new_pos.y].blocked) {
-				new_state.turns += 100;
+				new_state.turns += 10;
 				// TODO Sure?
 				//continue;
 			}
@@ -122,6 +122,22 @@ void Navigation::Navigate(std::vector<Ship*> ships, std::vector<Command>& comman
 
 	Player& me = game->GetMyPlayer();
 
+	for (Position dropoff : game->GetMyPlayer().dropoffs) {
+		std::vector<Ship*> ships_near_dropoff; // (with target the dropoff)
+		for (const Direction d : DIRECTIONS) {
+			Ship* s = me.ShipAt(dropoff);
+			if (s && s->target == dropoff)
+				ships_near_dropoff.push_back(s);
+		}
+
+		if (ships_near_dropoff.size() > 1) {
+			Ship* s = strategy->GetShipWithHighestPriority(ships_near_dropoff);
+			if (s) {
+				s->priority += 1000000000;
+			}
+		}
+	}
+
 	OptimalPathMap map;
 
 	while (!ships.empty()) {
@@ -155,8 +171,7 @@ void Navigation::Navigate(std::vector<Ship*> ships, std::vector<Command>& comman
 				optionCost = 99999999;
 			}
 			else {
-				//bool getting_closer = pp.ToroidalDistanceTo(target) <= target_dist;
-				optionCost = map.cells[pp.x][pp.y].turns * 100 + map.cells[pp.x][pp.y].haliteCost;
+				optionCost = map.cells[pp.x][pp.y].ratio();
 			}
 
 			options.push_back(Option{

@@ -12,83 +12,6 @@ Strategy::Strategy(Game* game)
 	this->navigation = new Navigation(this);
 }
 
-double priorityEq(int profit, int cost, int turns) {
-	//if (profit < cost)
-	//	return -1;
-	// the CORE of the strategy
-	// (profit - cost) = earned
-	// earned / turns = profit per turn
-	// profit per turn / turns = profit per turn x turns
-	return (double)(profit - cost) / (double)(turns * turns);
-}
-
-OptimalMiningResult Strategy::MineMaxProfit(int shipHalite, int base_haliteCost, int base_turns, int cellHalite, bool cellInspired)
-{
-	OptimalMiningResult best = {
-		0,
-		0,
-		0
-	};
-
-	int halite_available = cellHalite;
-	int halite_acum = shipHalite;
-	for (int mining_turns = 0; mining_turns < 30; mining_turns++) {
-		double profit_per_turn = priorityEq(halite_acum, base_haliteCost, base_turns + mining_turns);
-
-		OptimalMiningResult possible = {
-			profit_per_turn,
-			halite_acum,
-			mining_turns,
-		};
-		if (mining_turns == 0) {}
-		else if(mining_turns == 1) best = possible;
-		else {
-			if (possible.profit_per_turn > best.profit_per_turn) {
-				best = possible;
-			}
-		}
-
-		int mined = ceil((1.0 / hlt::constants::EXTRACT_RATIO) * halite_available);
-		if (cellInspired) {
-			mined *= hlt::constants::INSPIRED_BONUS_MULTIPLIER + 1;
-		}
-		halite_acum += mined;
-		halite_acum = std::min(halite_acum, hlt::constants::MAX_HALITE);
-		halite_available -= mined;
-	}
-
-	return best;
-}
-
-// return the profit per turn of going to the position using the optimal strategy
-// if task type == MINE then its going, mine and go to the nearest dropoff
-double Strategy::CalculatePriority(Position start, Position destination, int shipHalite)
-{
-	Player& me = game->GetMyPlayer();
-
-	bool is_dropoff = me.IsDropoff(destination);
-
-	OptimalPathCell destCost = navigation->PathMinCost(start, destination);
-	destCost.turns *= 3;
-	
-	//out::Log("Cost from: " + start.str() + " to " + destination.str() + ": " + std::to_string(destCost.haliteCost) + " in " + std::to_string(destCost.turns));
-
-	if (is_dropoff) {
-		return priorityEq(shipHalite, destCost.haliteCost, destCost.turns);
-	}
-	else {
-		// we use dropoff to destination instead in favor of the cache
-		OptimalPathCell toDropoffCost = navigation->PathMinCost(me.ClosestDropoff(destination), destination);
-
-		double cost = destCost.haliteCost + toDropoffCost.haliteCost;
-		double turns_cost = destCost.turns + toDropoffCost.turns;
-		
-		const Cell* c = game->map->GetCell(destination);
-		OptimalMiningResult mineOptimal = MineMaxProfit(shipHalite, cost, turns_cost, c->halite, c->inspiration);
-		return mineOptimal.profit_per_turn;
-	}
-}
-
 double Strategy::ShipTaskPriority(Ship* s, Task* t)
 {
 	Player& me = game->GetMyPlayer();
@@ -97,44 +20,52 @@ double Strategy::ShipTaskPriority(Ship* s, Task* t)
 	switch (t->type) {
 	case MINE:
 	{
-		priority = CalculatePriority(s->pos, t->pos, s->halite);
-		break;
-	}
-	case DROP:
-	{
-		priority = CalculatePriority(s->pos, t->pos, s->halite);
+		const Cell* c = game->map->GetCell(t->pos);
 
-		OptimalPathCell r = navigation->PathMinCost(s->pos, me.ClosestDropoff(s->pos));
-		double th = suicide_stage ? 0.0 : 0.9;
-		bool gotta_drop = s->halite + 2 * r.haliteCost >= hlt::constants::MAX_HALITE * th;
+		// navigation cost
+		OptimalPathCell toDestCost = navigation->PathMinCost(s->pos, t->pos);
+		OptimalPathCell toDropoffCost = navigation->PathMinCost(me.ClosestDropoff(t->pos), t->pos);
 
-		if (s->dropping || gotta_drop) {
-			priority += 1000;
-			s->dropping = true;
-		}
-		else {
-			if (me.IsDropoff(s->pos)) // do not stay on a dropoff
-				priority = -INF;
-			else
-				priority = 0;
-		}
-		break;
-	}
-	case TRANSFORM_INTO_DROPOFF:
-	{
-		if (t->areaInfo.num_ally_ships >= t->areaInfo.num_enemy_ships) {
-			OptimalPathCell r = navigation->PathMinCost(s->pos, t->pos);
+		// mining
+		int halite_available = c->halite;
+		int halite_acum = s->halite;
+		double max_priority = 0;
 
-			Position closestActualDropoff = me.ClosestDropoff(t->pos);
-			int distToClosest = closestActualDropoff.ToroidalDistanceTo(t->pos);
+		for (int mining_turns = 0; mining_turns < 25; mining_turns++) {
+			if (mining_turns > 0) {
+				/// -----------------------
+				double profit = halite_acum;
 
-			if (distToClosest >= 8) {
-				int cost = (hlt::constants::DROPOFF_COST + r.haliteCost) - (s->halite + game->map->GetCell(t->pos)->halite);
-				int max_possible_distance = game->map->width / 2 + game->map->height / 2;
+				OptimalPathCell combined;
+				combined.haliteCost = toDestCost.haliteCost + toDropoffCost.haliteCost;
+				combined.turns = toDestCost.turns + toDropoffCost.turns + mining_turns;
+				
+				double possible_priority = profit / combined.ratio();
 
-				priority = priorityEq(t->areaInfo.avgHalite * 25 * (1.0 - ((double)distToClosest / (double)max_possible_distance)), cost, r.turns);
+				possible_priority += game->map->GetAreaInfo(t->pos, 4).avgHalite / 10000.0;
+				/// -----------------------
+
+				if (possible_priority > max_priority) {
+					max_priority = possible_priority;
+				}
 			}
+
+			// Mine
+			int mined = ceil((1.0 / hlt::constants::EXTRACT_RATIO) * halite_available);
+			if (c->inspiration) {
+				mined *= hlt::constants::INSPIRED_BONUS_MULTIPLIER + 1;
+			}
+			halite_acum += mined;
+			halite_acum = std::min(halite_acum, hlt::constants::MAX_HALITE);
+			halite_available -= mined;
 		}
+
+		priority = max_priority;
+		break;
+	}
+	default:
+	{
+		priority = -42;
 		break;
 	}
 	}
