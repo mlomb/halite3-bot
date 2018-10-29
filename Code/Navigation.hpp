@@ -10,12 +10,17 @@
 
 class Strategy;
 
+enum BlockedCell {
+	EMPTY,
+	TRANSIENT,
+	FIXED
+};
+
 struct OptimalPathCell {
 	int haliteCost = INF;
 	int turns = INF;
 	bool expanded = false;
 	bool added = false;
-	bool blocked = false;
 
 	double ratio() const {
 		return (turns * 100) + haliteCost;
@@ -23,12 +28,6 @@ struct OptimalPathCell {
 
 	bool operator<(const OptimalPathCell& rhs) const
 	{
-		/*
-		if (turns == rhs.turns)
-			return haliteCost < rhs.haliteCost;
-		else
-			return turns < rhs.turns;
-		*/
 		return ratio() < rhs.ratio();
 	}
 };
@@ -44,11 +43,10 @@ public:
 	OptimalPathCell PathMinCost(Position start, Position end);
 
 	void Clear();
-	void InitMap(OptimalPathMap& map);
 	void Navigate(std::vector<Ship*> ships, std::vector<Command>& commands);
 
 	Strategy* strategy;
 	Game* game;
-	bool hits[64][64];
+	BlockedCell hits[64][64];
 	std::map<Position, OptimalPathMap> minCostCache;
 };

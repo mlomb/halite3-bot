@@ -12,7 +12,10 @@ void Navigation::PathMinCostFromMap(Position start, OptimalPathMap& map)
 {
 	std::queue<Position> q;
 
-	map.cells[start.x][start.y] = { 0, 1, false, true, false };
+	map.cells[start.x][start.y].haliteCost = 0;
+	map.cells[start.x][start.y].turns = 0;
+	map.cells[start.x][start.y].expanded = false;
+	map.cells[start.x][start.y].added = false;
 	q.push(start);
 
 	while (!q.empty()) {
@@ -40,11 +43,12 @@ void Navigation::PathMinCostFromMap(Position start, OptimalPathMap& map)
 			new_state.turns = r.turns + 1;
 			new_state.expanded = false;
 			new_state.added = true;
-			new_state.blocked = false;
 
-			if (map.cells[new_pos.x][new_pos.y].blocked) {
-				new_state.turns += 100;
-				// TODO Sure?
+			// TODO Sure?
+			switch(hits[new_pos.x][new_pos.y]) {
+			case BlockedCell::FIXED:
+				new_state.turns += 4;
+				break;
 			}
 
 			if (new_state < map.cells[new_pos.x][new_pos.y]) {
@@ -64,8 +68,7 @@ OptimalPathCell Navigation::PathMinCost(Position start, Position end)
 	}
 
 	// not cached
-	OptimalPathMap map;
-	InitMap(map);
+	OptimalPathMap map = {};
 
 	PathMinCostFromMap(start, map);
 	minCostCache.emplace(start, map);
@@ -81,7 +84,7 @@ void Navigation::Clear()
 
 	for (int x = 0; x < game->map->width; x++) {
 		for (int y = 0; y < game->map->height; y++) {
-			hits[x][y] = false;
+			hits[x][y] = BlockedCell::EMPTY;
 		}
 	}
 
@@ -91,26 +94,14 @@ void Navigation::Clear()
 		if (enemy_player.id == game->my_id) continue;
 
 		for (Position ed : enemy_player.dropoffs)
-			hits[ed.x][ed.y] = true;
+			hits[ed.x][ed.y] = BlockedCell::FIXED; // avoid enemy dropoffs
 		for (auto& es : enemy_player.ships) {
-			hits[es.second->pos.x][es.second->pos.y] = !me.IsDropoff(es.second->pos);
-		}
-	}
-}
-
-void Navigation::InitMap(OptimalPathMap& map)
-{
-	map = {};
-
-	for (int x = 0; x < game->map->width; x++) {
-		for (int y = 0; y < game->map->height; y++) {
-			map.cells[x][y].blocked = hits[x][y];
-		}
-	}
-
-	if (strategy->suicide_stage) {
-		for (Position dropoff : game->GetMyPlayer().dropoffs) {
-			hits[dropoff.x][dropoff.y] = false;
+			if (me.IsDropoff(es.second->pos)) {
+				hits[es.second->pos.x][es.second->pos.y] = BlockedCell::EMPTY;
+			}
+			else {
+				hits[es.second->pos.x][es.second->pos.y] = BlockedCell::FIXED;
+			}
 		}
 	}
 }
@@ -124,7 +115,7 @@ void Navigation::Navigate(std::vector<Ship*> ships, std::vector<Command>& comman
 	for (Position dropoff : game->GetMyPlayer().dropoffs) {
 		std::vector<Ship*> ships_near_dropoff; // (with target the dropoff)
 		for (const Direction d : DIRECTIONS) {
-			Ship* s = me.ShipAt(dropoff);
+			Ship* s = me.ShipAt(dropoff.DirectionalOffset(d));
 			if (s && s->target == dropoff)
 				ships_near_dropoff.push_back(s);
 		}
@@ -137,18 +128,25 @@ void Navigation::Navigate(std::vector<Ship*> ships, std::vector<Command>& comman
 		}
 	}
 
-	OptimalPathMap map;
+	int navigation_order = 0;
 
 	while (!ships.empty()) {
 		// Take the one with the highest priority
 		Ship* s = strategy->GetShipWithHighestPriority(ships);
 		ships.erase(std::find(ships.begin(), ships.end(), s));
 
+
+		if (strategy->suicide_stage) {
+			for (Position dropoff : game->GetMyPlayer().dropoffs) {
+				hits[dropoff.x][dropoff.y] = BlockedCell::EMPTY;
+			}
+		}
+
 		// ----- Navigate
 		Position target = s->target;
 		int target_dist = s->pos.ToroidalDistanceTo(target);
 
-		InitMap(map); // clear and reinit map
+		OptimalPathMap map = {};
 		PathMinCostFromMap(target, map);
 
 		struct Option {
@@ -165,11 +163,8 @@ void Navigation::Navigate(std::vector<Ship*> ships, std::vector<Command>& comman
 
 		for (const Direction d : dirs) {
 			Position pp = s->pos.DirectionalOffset(d);
-			double optionCost;
-			if (map.cells[pp.x][pp.y].blocked) {
-				optionCost = 99999999;
-			}
-			else {
+			double optionCost = 999999999;
+			if (hits[pp.x][pp.y] == BlockedCell::EMPTY) {
 				if (strategy->suicide_stage) {
 					optionCost = map.cells[pp.x][pp.y].turns * 10000 + map.cells[pp.x][pp.y].haliteCost;
 				}
@@ -188,28 +183,67 @@ void Navigation::Navigate(std::vector<Ship*> ships, std::vector<Command>& comman
 			return a.optionCost < b.optionCost;
 		});
 
+
 		Direction d = Direction::STILL;
 		for (const Option& option : options) {
 			auto mov_pos = s->pos.DirectionalOffset(option.direction);
 
-			if (!hits[mov_pos.x][mov_pos.y]) {
+			if (hits[mov_pos.x][mov_pos.y] == BlockedCell::EMPTY) {
 				d = option.direction;
 				break;
 			}
 		}
 
+#ifdef HALITE_LOCAL
+		double optionMap[64][64];
+		for (int x = 0; x < game->map->width; x++) {
+			for (int y = 0; y < game->map->height; y++) {
+				optionMap[x][y] = map.cells[x][y].turns;
+			}
+		}
+
+		for (const Option& option : options) {
+			//auto mov_pos = s->pos.DirectionalOffset(option.direction);
+			//optionMap[mov_pos.x][mov_pos.y] = hits[mov_pos.x][mov_pos.y] == BlockedCell::EMPTY ? map.cells[mov_pos.x][mov_pos.y].turns : -3;
+		}
+		json data_map;
+		for (int y = 0; y < game->map->height; y++) {
+			json data_row;
+			for (int x = 0; x < game->map->width; x++) {
+				data_row.push_back(optionMap[x][y]);
+			}
+			data_map.push_back(data_row);
+		}
+		out::LogFluorineDebug({
+			{ "type", "priority" },
+			{ "position_x", s->pos.x },
+			{ "position_y", s->pos.y }
+			}, data_map);
+#endif
+
 		auto mov_pos = s->pos.DirectionalOffset(d);
-		hits[mov_pos.x][mov_pos.y] = true;
+		hits[mov_pos.x][mov_pos.y] = mov_pos == s->target && !me.IsDropoff(s->target) ? BlockedCell::FIXED : BlockedCell::TRANSIENT;
 
 		// Collision chain
 		Ship* shipInMovedLocation = me.ShipAt(mov_pos);
 		if (shipInMovedLocation) {
 			if(std::find(ships.begin(), ships.end(), shipInMovedLocation) != ships.end()) {
 				// this ship should be the next to be processed
-				shipInMovedLocation->priority += 100000;
+				shipInMovedLocation->priority += 100000000000;
 			}
 		}
 
+#ifdef HALITE_LOCAL
+		out::LogShip(s->ship_id, {
+			{ "task_type", s->task ? s->task->type : 0 },
+			{ "task_x", s->target.x },
+			{ "task_y", s->target.y },
+			{ "task_priority", std::to_string(s->priority) },
+			{ "navigation_order", std::to_string(navigation_order) },
+		});
+#endif
+
 		commands.push_back(MoveCommand(s->ship_id, d));
+		navigation_order++;
 	}
 }

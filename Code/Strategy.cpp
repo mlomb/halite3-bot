@@ -33,16 +33,18 @@ double Strategy::ShipTaskPriority(Ship* s, Task* t)
 		for (int mining_turns = 0; mining_turns < 25; mining_turns++) {
 			if (mining_turns > 0) {
 				/// -----------------------
-				double profit = halite_acum;
-
+				double profit = 0;
+				double penalty = 0;
 
 				OptimalPathCell combined;
 				combined.haliteCost = toDestCost.haliteCost + toDropoffCost.haliteCost;
 				combined.turns = toDestCost.turns + toDropoffCost.turns + mining_turns;
 
-				double possible_priority = (profit) / (double)(combined.turns * combined.turns);
+				profit = halite_acum;// +(c->near_info.avgHalite / 100.0) * 5;
+				//penalty = c->near_info.num_ally_ships * 25;
 
-				//possible_priority += c->near_info.avgHalite / 10000.0;
+				double possible_priority = (profit - penalty) / (double)(combined.turns * combined.turns);
+
 				/// -----------------------
 
 				//out::Log(std::to_string(profit) + " -- " + std::to_string(toDestCost.turns) + " -- " + std::to_string(toDropoffCost.turns) + " -- " + std::to_string(mining_turns));
@@ -142,7 +144,6 @@ void Strategy::CreateTasks()
 
 void Strategy::AssignTasks()
 {
-	double BIG_NUM = 10000000000000;
 	out::Stopwatch s("Assign Tasks");
 
 	Player& me = game->GetMyPlayer();
@@ -158,7 +159,7 @@ void Strategy::AssignTasks()
 	{
 		out::Stopwatch s("Edge creation");
 		for (Ship* s : shipsAvailable) {
-			if (s->priority == -1)
+			if (s->priority > 0) // already assigned
 				continue;
 
 #ifdef HALITE_LOCAL
@@ -178,7 +179,7 @@ void Strategy::AssignTasks()
 			}
 
 
-
+			/*
 #ifdef HALITE_LOCAL
 			json data_map;
 			for (int y = 0; y < game->map->height; y++) {
@@ -194,6 +195,7 @@ void Strategy::AssignTasks()
 				{ "position_y", s->pos.y }
 				}, data_map);
 #endif
+			*/
 		}
 	}
 
@@ -215,15 +217,6 @@ void Strategy::AssignTasks()
 			e.s->target = e.t->pos;
 			e.s->priority = e.priority;
 			e.t->assigned = true;
-
-#ifdef HALITE_LOCAL
-			out::LogShip(e.s->ship_id, {
-				{ "task_type", e.t->type },
-				{ "task_x", e.s->target.x },
-				{ "task_y", e.s->target.y },
-				{ "task_priority", std::to_string(e.s->priority) },
-				});
-#endif
 		}
 	}
 }
@@ -260,13 +253,13 @@ void Strategy::Execute(std::vector<Command>& commands)
 		}
 
 		if (s->halite < floor(game->map->GetCell(s->pos)->halite * 0.1)) {
-			navigation->hits[s->pos.x][s->pos.y] = true;
+			navigation->hits[s->pos.x][s->pos.y] = BlockedCell::FIXED;
 			commands.push_back(MoveCommand(s->ship_id, Direction::STILL));
 			continue;
 		}
 
 		if (s->dropping) {
-			s->priority = -1; // -1 DO NOT ASSIGN ANY TASK
+			s->priority = 10000000 + s->halite;
 			s->target = me.ClosestDropoff(s->pos);
 		}
 
