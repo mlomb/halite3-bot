@@ -12,7 +12,7 @@ void Navigation::PathMinCostFromMap(Position start, OptimalPathMap& map)
 {
 	std::queue<Position> q;
 
-	map.cells[start.x][start.y] = { 0, 0, false, true, false };
+	map.cells[start.x][start.y] = { 0, 1, false, true, false };
 	q.push(start);
 
 	while (!q.empty()) {
@@ -43,9 +43,8 @@ void Navigation::PathMinCostFromMap(Position start, OptimalPathMap& map)
 			new_state.blocked = false;
 
 			if (map.cells[new_pos.x][new_pos.y].blocked) {
-				new_state.turns += 10;
+				new_state.turns += 100;
 				// TODO Sure?
-				//continue;
 			}
 
 			if (new_state < map.cells[new_pos.x][new_pos.y]) {

@@ -23,6 +23,8 @@ double Strategy::ShipTaskPriority(Ship* s, Task* t)
 		OptimalPathCell toDestCost = navigation->PathMinCost(s->pos, t->pos);
 		OptimalPathCell toDropoffCost = navigation->PathMinCost(me.ClosestDropoff(t->pos), t->pos);
 
+		toDestCost.turns *= 3;
+
 		// mining
 		int halite_available = c->halite;
 		int halite_acum = s->halite;
@@ -33,14 +35,17 @@ double Strategy::ShipTaskPriority(Ship* s, Task* t)
 				/// -----------------------
 				double profit = halite_acum;
 
+
 				OptimalPathCell combined;
 				combined.haliteCost = toDestCost.haliteCost + toDropoffCost.haliteCost;
 				combined.turns = toDestCost.turns + toDropoffCost.turns + mining_turns;
-				
-				double possible_priority = profit / combined.ratio();
 
-				possible_priority += c->near_info.avgHalite / 10000.0;
+				double possible_priority = (profit) / (double)(combined.turns * combined.turns);
+
+				//possible_priority += c->near_info.avgHalite / 10000.0;
 				/// -----------------------
+
+				//out::Log(std::to_string(profit) + " -- " + std::to_string(toDestCost.turns) + " -- " + std::to_string(toDropoffCost.turns) + " -- " + std::to_string(mining_turns));
 
 				if (possible_priority > max_priority) {
 					max_priority = possible_priority;
@@ -156,13 +161,39 @@ void Strategy::AssignTasks()
 			if (s->priority == -1)
 				continue;
 
+#ifdef HALITE_LOCAL
+			double priorityMap[64][64];
+#endif
+
 			for (Task* t : tasks) {
+				double priority = ShipTaskPriority(s, t);
 				edges.push_back({
-					ShipTaskPriority(s, t),
+					priority,
 					s,
 					t
 				});
+#ifdef HALITE_LOCAL
+				priorityMap[t->pos.x][t->pos.y] = priority;
+#endif
 			}
+
+
+
+#ifdef HALITE_LOCAL
+			json data_map;
+			for (int y = 0; y < game->map->height; y++) {
+				json data_row;
+				for (int x = 0; x < game->map->width; x++) {
+					data_row.push_back(priorityMap[x][y]);
+				}
+				data_map.push_back(data_row);
+			}
+			out::LogFluorineDebug({
+				{ "type", "priority" },
+				{ "position_x", s->pos.x },
+				{ "position_y", s->pos.y }
+				}, data_map);
+#endif
 		}
 	}
 
@@ -183,6 +214,7 @@ void Strategy::AssignTasks()
 			e.s->task = e.t;
 			e.s->target = e.t->pos;
 			e.s->priority = e.priority;
+			e.t->assigned = true;
 
 #ifdef HALITE_LOCAL
 			out::LogShip(e.s->ship_id, {
