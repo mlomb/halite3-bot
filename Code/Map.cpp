@@ -43,6 +43,7 @@ void Map::Update()
 	}
 
 	// calc inspiration & near avg
+	halite_remaining = 0;
 	for (int y = 0; y < height; y++) {
 		for (int x = 0; x < width; x++) {
 			Position p = { x, y };
@@ -50,6 +51,27 @@ void Map::Update()
 
 			c->near_info = GetAreaInfo(p, hlt::constants::INSPIRATION_RADIUS);
 			c->inspiration = c->near_info.num_enemy_ships >= hlt::constants::INSPIRATION_SHIP_COUNT;
+			c->ship_on_cell = nullptr;
+			c->enemy_reach_halite = -1;
+
+			halite_remaining += c->halite;
+		}
+	}
+
+	// fill ship_on_cell
+	for (auto& pp : game->players) {
+		for (auto& ss : pp.second.ships) {
+			GetCell(ss.second->pos)->ship_on_cell = ss.second;
+
+			if (pp.first != game->my_id) {
+				for (Direction d : DIRECTIONS) {
+					Position p = ss.second->pos.DirectionalOffset(d);
+					int& rh = GetCell(p)->enemy_reach_halite;
+					if (rh == -1 || ss.second->halite < rh) {
+						rh = ss.second->halite;
+					}
+				}
+			}
 		}
 	}
 }

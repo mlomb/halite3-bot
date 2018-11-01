@@ -35,6 +35,8 @@ void Game::Initialize(const std::string& bot_name)
 	}
 
 	map->Initialize();
+
+	total_halite = map->halite_remaining;
 	
 	std::cout << bot_name << std::endl;
 
@@ -43,6 +45,7 @@ void Game::Initialize(const std::string& bot_name)
 	out::Log("Bot: " + bot_name);
 	out::Log("Num players: " + num_players);
 	out::Log("Map: " + std::to_string(map->width) + "x" + std::to_string(map->height));
+	out::Log("Total Halite: " + std::to_string(total_halite));
 	out::Log("----------------------------");
 }
 
@@ -82,6 +85,7 @@ void Game::Update()
 
 	out::Log("Halite: " + std::to_string(me.halite));
 	out::Log("Ships: " + std::to_string(me.ships.size()));
+	out::Log("AvgHalite: " + std::to_string(map->halite_remaining / (double)(map->width * map->height)));
 	out::Log("-----");
 
 }

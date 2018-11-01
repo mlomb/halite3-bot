@@ -14,11 +14,12 @@ struct Ship {
 	int halite;
 	bool dead;
 
-	Task* task;
 	double priority;
 	Position target;
+	EnemyPolicy policy;
 
 	// STRATEGY-SPECIFIC
+	Task* task;
 	bool dropping = false;
 };
 
@@ -29,13 +30,16 @@ public:
 
 	void Update(int num_ships, int num_dropoffs, int halite, Game* game);
 
+	int TotalHalite();
 	bool IsDropoff(const Position pos);
 	Position ClosestDropoff(const Position pos);
+	int DistanceToClosestDropoff(const Position pos);
 	Ship* ShipAt(const Position pos);
 
 	PlayerID id;
 	Position shipyard_position;
 	int halite;
+	int carrying_halite;
 	
 	std::map<EntityID, Ship*> ships;
 	std::vector<Position> dropoffs;

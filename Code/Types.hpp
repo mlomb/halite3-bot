@@ -19,6 +19,12 @@ enum class Direction : char {
 	STILL = 'o',
 };
 
+enum EnemyPolicy {
+	IGNORE,
+	DODGE,
+	ENGAGE
+};
+
 const std::vector<Direction> DIRECTIONS = {
 	Direction::EAST,
 	Direction::WEST,

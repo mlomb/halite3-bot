@@ -33,6 +33,7 @@ public:
 	int remaining_turns;
 	int turn;
 	int num_players;
+	int total_halite;
 	PlayerID my_id;
 	std::unordered_map<PlayerID, Player> players;
 

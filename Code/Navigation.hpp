@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vector>
+#include <random>
 #include <queue>
 #include <set>
 
@@ -12,18 +13,21 @@ class Strategy;
 
 enum BlockedCell {
 	EMPTY,
+	GHOST,
 	TRANSIENT,
-	FIXED
+	STATIC
 };
 
 struct OptimalPathCell {
 	int haliteCost = INF;
 	int turns = INF;
+	int ships_on_path = 0;
+	int tor_dist = 0;
 	bool expanded = false;
 	bool added = false;
 
 	double ratio() const {
-		return (turns * 100) + haliteCost;
+		return (turns * 10000) + (haliteCost * 10) + (100.0 - (double)tor_dist) / 100.0;
 	}
 
 	bool operator<(const OptimalPathCell& rhs) const
@@ -35,14 +39,23 @@ struct OptimalPathMap {
 	OptimalPathCell cells[64][64];
 };
 
+struct NavigationOption {
+	int option_index;
+	double optionCost;
+	Position pos;
+	Direction direction;
+};
+
 class Navigation {
 public:
 	Navigation(Strategy* strategy);
 
-	void PathMinCostFromMap(Position start, OptimalPathMap& map);
+	void PathMinCostFromMap(Position start, EnemyPolicy policy, OptimalPathMap& map);
 	OptimalPathCell PathMinCost(Position start, Position end);
 
 	void Clear();
+	bool IsHitFree(const Position pos);
+	std::vector<NavigationOption> NavigationOptionsForShip(Ship* s);
 	void Navigate(std::vector<Ship*> ships, std::vector<Command>& commands);
 
 	Strategy* strategy;

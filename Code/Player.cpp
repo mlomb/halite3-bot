@@ -11,6 +11,7 @@ Player::Player(PlayerID id, Position shipyard_position)
 void Player::Update(int num_ships, int num_dropoffs, int halite, Game* game)
 {
 	this->halite = halite;
+	this->carrying_halite = 0;
 
 	for (auto& p : ships) p.second->dead = true;
 
@@ -33,6 +34,10 @@ void Player::Update(int num_ships, int num_dropoffs, int halite, Game* game)
 		s->pos = pos;
 		s->halite = halite;
 		s->dead = false;
+
+		game->map->GetCell(pos)->ship_on_cell = s;
+
+		this->carrying_halite += s->halite;
 	}
 
 	auto itr = ships.begin();
@@ -54,6 +59,11 @@ void Player::Update(int num_ships, int num_dropoffs, int halite, Game* game)
 		in::GetSStream() >> dropoff_id >> dropoff_position.x >> dropoff_position.y;
 		dropoffs.push_back(dropoff_position);
 	}
+}
+
+int Player::TotalHalite()
+{
+	return halite + carrying_halite;// +ships.size() * hlt::constants::SHIP_COST;
 }
 
 bool Player::IsDropoff(const Position pos)
@@ -80,13 +90,14 @@ Position Player::ClosestDropoff(const Position pos)
 	return closest;
 }
 
+int Player::DistanceToClosestDropoff(const Position pos)
+{
+	return ClosestDropoff(pos).ToroidalDistanceTo(pos);
+}
+
 Ship* Player::ShipAt(const Position pos)
 {
-	for (auto& p : ships) {
-		if (p.second->pos == pos)
-			return p.second;
-	}
-	return nullptr;
+	return Game::Get()->map->GetCell(pos)->ship_on_cell;
 }
 
 void Player::SortByTaskPriority(std::vector<Ship*>& ships)

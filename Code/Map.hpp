@@ -5,6 +5,7 @@
 #include "Types.hpp"
 
 class Game;
+class Ship;
 
 struct AreaInfo {
 	int halite;
@@ -18,6 +19,8 @@ struct Cell {
 	int halite;
 	bool inspiration;
 	AreaInfo near_info;
+	Ship* ship_on_cell;
+	int enemy_reach_halite;
 };
 
 class Map {
@@ -32,5 +35,6 @@ public:
 
 	Game* game;
 	int width, height;
+	int halite_remaining;
 	std::vector<std::vector<Cell*>> cells;
 };
