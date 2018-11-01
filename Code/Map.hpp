@@ -36,5 +36,6 @@ public:
 	Game* game;
 	int width, height;
 	int halite_remaining;
+	double map_avg_halite;
 	std::vector<std::vector<Cell*>> cells;
 };

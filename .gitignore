@@ -10,4 +10,5 @@ __pycache__/
 *.ipr
 *.iws
 Build/
+Analysis/
 OLD/

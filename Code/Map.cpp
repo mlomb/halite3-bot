@@ -58,6 +58,8 @@ void Map::Update()
 		}
 	}
 
+	map_avg_halite = halite_remaining / (double)(width * height);
+
 	// fill ship_on_cell
 	for (auto& pp : game->players) {
 		for (auto& ss : pp.second.ships) {

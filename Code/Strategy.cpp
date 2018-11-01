@@ -43,8 +43,9 @@ double Strategy::ShipTaskPriority(Ship* s, Task* t)
 
 				profit = halite_acum + (c->near_info.avgHalite / 100.0) * 50;
 				penalty = c->near_info.num_ally_ships * 16;
+				double revenue = ((profit - penalty) / game->map->map_avg_halite) * 100.0;
 
-				double possible_priority = (profit - penalty) / (double)(combined.turns * combined.turns);
+				double possible_priority = revenue / (double)(combined.turns * combined.turns);
 
 				/// -----------------------
 
@@ -193,7 +194,7 @@ void Strategy::CreateTasks()
 			}
 
 			if (!is_dropoff) {
-				if(c->halite > 20) {
+				if(c->halite > 25/* std::max(20.0, game->map->map_avg_halite * 0.8)*/) {
 					Task* t = new Task();
 					t->type = MINE;
 					t->pos = { x, y };
@@ -209,16 +210,14 @@ void Strategy::CreateTasks()
 			Position dropoff_pos;
 			double bestRatio = -1;
 
-			double mapAvgHalite = game->map->halite_remaining / (double)(game->map->width * game->map->height);
-			out::Log(std::to_string(mapAvgHalite));
 			for (int x = 0; x < game->map->width; x++) {
 				for (int y = 0; y < game->map->height; y++) {
 					Position pos = { x, y };
 					int distance_to_closest_dropoff = me.DistanceToClosestDropoff(pos);
-					if (distance_to_closest_dropoff > map->width * 0.25) {
+					if (distance_to_closest_dropoff > std::ceil(map->width * 0.3)) {
 						AreaInfo info = game->map->GetAreaInfo(pos, 5);
 						if (info.num_ally_ships > 0 && info.num_ally_ships >= info.num_enemy_ships) {
-							if (info.avgHalite / mapAvgHalite >= 1.25) {
+							if (info.avgHalite / game->map->map_avg_halite >= 1.35) {
 								double ratio = info.avgHalite / (distance_to_closest_dropoff * distance_to_closest_dropoff);
 								if (ratio > bestRatio) {
 									bestRatio = ratio;
