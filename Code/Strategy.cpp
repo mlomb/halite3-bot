@@ -20,7 +20,7 @@ double Strategy::ShipTaskPriority(Ship* s, Task* t)
 	default:
 	case TaskType::NONE:
 	{
-		return 0.1;
+		return 0.00001;
 	}
 	case TaskType::TRANSFORM_INTO_DROPOFF:
 	{
