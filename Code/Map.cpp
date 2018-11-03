@@ -49,8 +49,9 @@ void Map::Update()
 			Position p = { x, y };
 			Cell* c = GetCell(p);
 
-			c->near_info = GetAreaInfo(p, hlt::constants::INSPIRATION_RADIUS);
-			c->inspiration = c->near_info.num_enemy_ships >= hlt::constants::INSPIRATION_SHIP_COUNT;
+			c->near_info_3 = GetAreaInfo(p, 3);
+			c->near_info_4 = GetAreaInfo(p, hlt::constants::INSPIRATION_RADIUS);
+			c->inspiration = c->near_info_4.num_enemy_ships >= hlt::constants::INSPIRATION_SHIP_COUNT;
 			c->ship_on_cell = nullptr;
 			c->enemy_reach_halite = -1;
 

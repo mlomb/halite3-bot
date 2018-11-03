@@ -42,6 +42,7 @@ struct OptimalPathMap {
 struct NavigationOption {
 	int option_index;
 	double optionCost;
+	double optionCostByRank;
 	Position pos;
 	Direction direction;
 };
@@ -55,6 +56,7 @@ public:
 
 	void Clear();
 	bool IsHitFree(const Position pos);
+	bool ShouldAttack(int allyHalite, int allyShips, int enemyHalite, int enemyShips);
 	std::vector<NavigationOption> NavigationOptionsForShip(Ship* s);
 	void Navigate(std::vector<Ship*> ships, std::vector<Command>& commands);
 

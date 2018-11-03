@@ -48,3 +48,10 @@ void Position::Wrap() {
 	x = (x + wx) % wx;
 	y = (y + wy) % wy;
 }
+
+std::mt19937_64 & mt()
+{
+	thread_local static std::random_device srd;
+	thread_local static std::mt19937_64 smt(srd());
+	return smt;
+}

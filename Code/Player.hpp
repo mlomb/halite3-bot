@@ -9,18 +9,24 @@ class Game;
 class Task;
 
 struct Ship {
+	PlayerID player_id;
 	EntityID ship_id;
 	Position pos;
 	int halite;
 	bool dead;
 
 	double priority;
-	Position target;
-	EnemyPolicy policy;
+	Task* task;
 
 	// STRATEGY-SPECIFIC
-	Task* task;
 	bool dropping = false;
+
+#ifdef HALITE_LOCAL
+	// METRICS
+	bool last_dropping_state = false;
+	int dropping_start_turn;
+	Position dropping_start;
+#endif
 };
 
 class Player {

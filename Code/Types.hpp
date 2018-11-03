@@ -2,6 +2,7 @@
 
 #include <string>
 #include <vector>
+#include <random>
 #include <stdlib.h>
 #include <algorithm>
 
@@ -19,10 +20,28 @@ enum class Direction : char {
 	STILL = 'o',
 };
 
-enum EnemyPolicy {
-	IGNORE,
-	DODGE,
-	ENGAGE
+enum Stage {
+	// Most of the game, just mining and avoiding enemies
+	MINING,
+	// There is no more halite to pick up, try to collision
+	// with other turtles and steal their halite
+	STEALING,
+	// All ships should go to the nearest dropoff and collide
+	SUICIDE
+};
+
+enum class TaskType {
+	NONE = 0,
+	MINE = 1,
+	DROP = 2,
+	ATTACK = 3,
+	TRANSFORM_INTO_DROPOFF = 4
+};
+
+enum class EnemyPolicy {
+	NONE = 0,
+	DODGE = 1,
+	ENGAGE = 2
 };
 
 const std::vector<Direction> DIRECTIONS = {
@@ -49,3 +68,5 @@ struct Position {
 	int ToroidalDistanceTo(const Position& other) const;
 	void Wrap();
 };
+
+std::mt19937_64& mt();

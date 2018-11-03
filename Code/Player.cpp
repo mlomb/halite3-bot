@@ -30,6 +30,7 @@ void Player::Update(int num_ships, int num_dropoffs, int halite, Game* game)
 			s = new Ship();
 			ships[ship_id] = s;
 		}
+		s->player_id = id;
 		s->ship_id = ship_id;
 		s->pos = pos;
 		s->halite = halite;

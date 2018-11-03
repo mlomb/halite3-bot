@@ -37,15 +37,15 @@ void Navigation::PathMinCostFromMap(Position start, EnemyPolicy policy, OptimalP
 
 			/*
 			switch (policy) {
-			case IGNORE:
+			case NONE:
 			default:
-				break;
+			break;
 
 			case DODGE:
-				if (game->map->GetCell(new_pos)->enemy_reach_halite != -1) {
-					continue;
-				}
-				break;
+			if (game->map->GetCell(new_pos)->enemy_reach_halite != -1) {
+			continue;
+			}
+			break;
 			}
 			*/
 
@@ -58,14 +58,14 @@ void Navigation::PathMinCostFromMap(Position start, EnemyPolicy policy, OptimalP
 			new_state.tor_dist = start.ToroidalDistanceTo(new_pos);
 
 			// TODO Sure?
-			switch(hits[new_pos.x][new_pos.y]) {
+			switch (hits[new_pos.x][new_pos.y]) {
 			case BlockedCell::STATIC:
 			case BlockedCell::GHOST:
 				new_state.turns += 1000;
 				break;
-			//case BlockedCell::TRANSIENT:
-			//	new_state.turns += 4;
-			//	break;
+				//case BlockedCell::TRANSIENT:
+				//	new_state.turns += 4;
+				//	break;
 			}
 
 			if (new_state < map.cells[new_pos.x][new_pos.y]) {
@@ -87,7 +87,7 @@ OptimalPathCell Navigation::PathMinCost(Position start, Position end)
 	// not cached
 	OptimalPathMap map = {};
 
-	PathMinCostFromMap(start, EnemyPolicy::IGNORE, map);
+	PathMinCostFromMap(start, EnemyPolicy::NONE, map);
 	minCostCache.emplace(start, map);
 
 	return map.cells[end.x][end.y];
@@ -129,18 +129,42 @@ bool Navigation::IsHitFree(const Position pos)
 		   hits[pos.x][pos.y] == BlockedCell::GHOST;
 }
 
+bool Navigation::ShouldAttack(int allyHalite, int allyShips, int enemyHalite, int enemyShips) {
+
+	return
+		enemyHalite >= 100 && // is worth it
+		allyShips > 3 && // there are some ally ships to pick the halite
+		allyShips > enemyShips && // we are one more than them
+		allyHalite < 650 && // dont suicide if we have some halite
+		allyHalite / (double)(enemyHalite + 1) <= 0.65; // (core) how much are we going to win / they loose
+}
+
 std::vector<NavigationOption> Navigation::NavigationOptionsForShip(Ship* s)
 {
 	Player& me = game->GetMyPlayer();
 
+	Position target = s->task->position;
+	EnemyPolicy policy = s->task->policy;
+
+	switch (s->task->type) {
+	case TaskType::NONE:
+		target = s->pos;
+		break;
+	case TaskType::TRANSFORM_INTO_DROPOFF:
+		if (me.DistanceToClosestDropoff(s->pos) <= 3) {
+			policy = EnemyPolicy::NONE;
+		}
+		break;
+	}
+
 	std::vector<NavigationOption> options;
 
 	OptimalPathMap map = {};
-	PathMinCostFromMap(s->target, s->policy, map);
+	PathMinCostFromMap(target, policy, map);
 
 	std::vector<Direction> dirs = DIRECTIONS;
-	if(!me.IsDropoff(s->pos)) {
-		if (s->target.ToroidalDistanceTo(s->pos) <= 1 || strategy->stage == Stage::SUICIDE) { // if target and is not a dropoff
+	if (!me.IsDropoff(s->pos)) {
+		if (target.ToroidalDistanceTo(s->pos) <= 1 || strategy->stage == Stage::SUICIDE) { // if target and is not a dropoff
 			dirs.push_back(Direction::STILL);
 		}
 	}
@@ -149,33 +173,63 @@ std::vector<NavigationOption> Navigation::NavigationOptionsForShip(Ship* s)
 
 	for (const Direction d : dirs) {
 		Position pp = s->pos.DirectionalOffset(d);
-		if (IsHitFree(pp)) {
-			double optionCost;
-			optionCost = map.cells[pp.x][pp.y].ratio();
 
-			switch (s->policy) {
-			case IGNORE:
-			default:
-				break;
+		Cell* c = game->map->GetCell(target);
+		bool hit_free = IsHitFree(pp);
+		Ship* other_ship = game->map->GetCell(pp)->ship_on_cell;
+		bool is_other_enemy = other_ship && other_ship->player_id != me.id;
+		AreaInfo& info_3 = c->near_info_3;
 
-			case DODGE:
-				if (s->halite > 150) {
-					int rh = game->map->GetCell(pp)->enemy_reach_halite;
-					if (rh != -1 && (s->halite >= game->map->GetCell(pp)->enemy_reach_halite || s->halite >= 650)) {
+		double optionCost = map.cells[pp.x][pp.y].ratio();
+		bool possibleOption = false;
+
+		if (hit_free) {
+			// Need to dodge?
+			if (policy == EnemyPolicy::DODGE) {
+				// (the enemy ship to us)
+				int rh = game->map->GetCell(pp)->enemy_reach_halite;
+				if (rh != -1) {
+					if (ShouldAttack(rh, info_3.num_enemy_ships, s->halite + c->halite, info_3.num_ally_ships) ||
+						(3 * s->halite > rh && s->halite >= 450)) {
 						optionCost = INF;
 					}
 				}
-				break;
 			}
 
+			possibleOption = true;
+		}
+		else {
+			if (is_other_enemy && policy == EnemyPolicy::ENGAGE) {
+				//if () { // if the target is to collide with that ship ( cost = 1 )
+				//
+				//}
+				if (ShouldAttack(s->halite, info_3.num_ally_ships, other_ship->halite + c->halite, info_3.num_enemy_ships)) {
+					optionCost = 1;
+					possibleOption = true;
+				}
+			}
+		}
 
+		if (possibleOption) {
 			options.push_back({
 				option_index++,
 				optionCost,
+				optionCost / (double)(option_index + 1),
 				pp,
-				d
-			});
+				d,
+				});
 		}
+	}
+
+	if (options.size() == 0) {
+		out::Log("No NavigationOption found for " + std::to_string(s->ship_id) + ".");
+		options.push_back({
+			0,
+			0,
+			0,
+			s->pos,
+			Direction::STILL,
+		});
 	}
 
 	return options;
@@ -183,12 +237,54 @@ std::vector<NavigationOption> Navigation::NavigationOptionsForShip(Ship* s)
 
 void Navigation::Navigate(std::vector<Ship*> ships, std::vector<Command>& commands)
 {
+	if (ships.size() == 0) return;
+
+	out::Log("Navigating...");
 	out::Stopwatch s("Navigate");
 
 	Player& me = game->GetMyPlayer();
-	std::random_device rd;
-	std::mt19937_64 gen(rd());
 	std::uniform_real_distribution<double> random_01(0.0, 1.0);
+
+#ifdef HALITE_LOCAL
+	static double navigationEfficiency = 0;
+	static int navigationEfficiency_samples = 0;
+#endif
+
+	std::vector<Ship*>::iterator it = ships.begin();
+	while (it != ships.end()) {
+		Ship* s = *it;
+
+#ifdef HALITE_LOCAL
+		// Measure Navigation efficiency
+		if (s->last_dropping_state != s->dropping) {
+			if (s->dropping) {
+				s->dropping_start = s->pos;
+				s->dropping_start_turn = game->turn;
+			}
+			else {
+				double eff = s->dropping_start.ToroidalDistanceTo(s->pos) / (double)(game->turn - s->dropping_start_turn);
+				navigationEfficiency += eff;
+				navigationEfficiency_samples++;
+
+				s->dropping_start_turn = 0;
+			}
+			s->last_dropping_state = s->dropping;
+		}
+#endif
+
+		if (s->halite < floor(game->map->GetCell(s->pos)->halite * 0.1) ||
+			(strategy->stage == Stage::SUICIDE && me.IsDropoff(s->pos))) {
+			hits[s->pos.x][s->pos.y] = BlockedCell::TRANSIENT;
+			commands.push_back(MoveCommand(s->ship_id, Direction::STILL));
+			it = ships.erase(it);
+			continue;
+		}
+		++it;
+	}
+
+#ifdef HALITE_LOCAL
+	out::Log("Navigation Efficiency (" + std::to_string(navigationEfficiency_samples) + "): " + std::to_string(navigationEfficiency / (double)navigationEfficiency_samples));
+#endif
 
 	// Prevent dropoff deadlock
 	for (Position dropoff : game->GetMyPlayer().dropoffs) {
@@ -198,7 +294,7 @@ void Navigation::Navigate(std::vector<Ship*> ships, std::vector<Command>& comman
 			Ship* s = me.ShipAt(dropoff.DirectionalOffset(d));
 			if (s) {
 				blocked++;
-				if(s->target == dropoff)
+				if (s->task && s->task->position == dropoff)
 					ships_near_dropoff.push_back(s);
 			}
 		}
@@ -211,19 +307,29 @@ void Navigation::Navigate(std::vector<Ship*> ships, std::vector<Command>& comman
 		}
 		else if (blocked == DIRECTIONS.size()) {
 			Ship* s = me.ShipAt(dropoff);
-			if(s)
+			if (s)
 				s->priority += 1000000000;
 		}
 	}
 
-	// Generate optionsMap with the ideal options for each ship
-	std::vector<std::vector<double>> optionsMap(game->map->width, std::vector<double>(game->map->height, 0));
+	struct NavigationCell {
+		double costRank = 0;
 
+		void operator+=(const NavigationOption& no) {
+			costRank += no.optionCostByRank;
+		}
+		void operator-=(const NavigationOption& no) {
+			costRank -= no.optionCostByRank;
+		}
+	};
+	NavigationCell navigationMap[64][64];
+
+	// ideal options
 	for (Ship* s : ships) {
-		auto options = NavigationOptionsForShip(s);
-		for (NavigationOption& no : options) {
-			optionsMap[no.pos.x][no.pos.y] += no.optionCost / (no.option_index + 1);
-			if(no.option_index == 0 && no.pos == s->target && !me.IsDropoff(no.pos)) {
+		auto idealOptions = NavigationOptionsForShip(s);
+		for (NavigationOption& no : idealOptions) {
+			navigationMap[no.pos.x][no.pos.y] += no;
+			if (no.option_index == 0 && no.pos == s->task->position && !me.IsDropoff(no.pos)) {
 				hits[no.pos.x][no.pos.y] = BlockedCell::GHOST;
 			}
 		}
@@ -247,81 +353,44 @@ void Navigation::Navigate(std::vector<Ship*> ships, std::vector<Command>& comman
 		auto options = NavigationOptionsForShip(s);
 		int salt = game->turn + game->map->halite_remaining;
 
-		std::sort(options.begin(), options.end(), [s, &salt, &optionsMap, &gen, &random_01](const NavigationOption& a, const NavigationOption& b) {
-			const double COST_THRESHOLD = 700;
-			if (fabs(a.optionCost - b.optionCost) <= COST_THRESHOLD) { // almost equal
-				double mpA = optionsMap[a.pos.x][a.pos.y] - a.optionCost / (a.option_index + 1);
-				double mpB = optionsMap[b.pos.x][b.pos.y] - b.optionCost / (b.option_index + 1);
-				if (fabs(mpA - mpB) <= COST_THRESHOLD) {
-					gen.seed(salt + s->ship_id * (a.option_index+1) * (b.option_index+1));
-					return random_01(gen) >= 0.5;
+		std::sort(options.begin(), options.end(), [s, &salt, &navigationMap, &random_01](const NavigationOption& a, const NavigationOption& b) {
+			if (fabs(a.optionCost - b.optionCost) <= 700) { // almost equal
+				double mpA = navigationMap[a.pos.x][a.pos.y].costRank - a.optionCostByRank;
+				double mpB = navigationMap[b.pos.x][b.pos.y].costRank - b.optionCostByRank;
+
+				if (fabs(mpA - mpB) <= 200) {
+					mt().seed(salt + s->ship_id * (a.option_index + 1) * (b.option_index + 1));
+					return random_01(mt()) >= 0.5;
 				}
 				else
 					return mpA < mpB;
-			} else
+			}
+			else
 				return a.optionCost < b.optionCost;
 		});
 
-		if (options.size() == 0) {
-			out::Log("No NavigationOption found for " + std::to_string(s->ship_id) + ".");
-			options.push_back({
-				0,
-				0,
-				s->pos,
-				Direction::STILL
-			});
-		}
 		NavigationOption& option = *options.begin();
-		hits[option.pos.x][option.pos.y] = (option.direction == Direction::STILL || option.pos == s->target) && !me.IsDropoff(s->target) ? BlockedCell::STATIC : BlockedCell::TRANSIENT;
+		hits[option.pos.x][option.pos.y] = (option.direction == Direction::STILL || option.pos == s->task->position) && !me.IsDropoff(s->task->position) ? BlockedCell::STATIC : BlockedCell::TRANSIENT;
+		navigationMap[option.pos.x][option.pos.y] -= option;
 		commands.push_back(MoveCommand(s->ship_id, option.direction));
-		
+
 		// Collision chain
 		Ship* shipInMovedLocation = me.ShipAt(option.pos);
 		if (shipInMovedLocation) {
 			if (std::find(ships.begin(), ships.end(), shipInMovedLocation) != ships.end()) {
-				// this ship should be the next to be processed
+				// this ship should be the next to be processed to avoid possible self collisions
 				shipInMovedLocation->priority += 100000000000;
 			}
 		}
-		
-		/*
-#ifdef HALITE_LOCAL
-		double optionMap[64][64];
-		for (int x = 0; x < game->map->width; x++) {
-			for (int y = 0; y < game->map->height; y++) {
-				optionMap[x][y] = 0;// map.cells[x][y].turns;
-			}
-		}
-
-		for (const NavigationOption& option : options) {
-			optionMap[option.pos.x][option.pos.y] = option.optionCost;
-		}
-		json data_map;
-		for (int y = 0; y < game->map->height; y++) {
-			json data_row;
-			for (int x = 0; x < game->map->width; x++) {
-				data_row.push_back(optionMap[x][y]);
-			}
-			data_map.push_back(data_row);
-		}
-		out::LogFluorineDebug({
-			{ "type", "priority" },
-			{ "position_x", s->pos.x },
-			{ "position_y", s->pos.y }
-			}, data_map);
-#endif
-		*/
-		
 
 #ifdef HALITE_LOCAL
 		out::LogShip(s->ship_id, {
-			{ "task_type", s->task ? s->task->type : 0 },
-			{ "task_x", s->target.x },
-			{ "task_y", s->target.y },
+			{ "task_type", s->task ? static_cast<int>(s->task->type) : -1 },
+			{ "task_x", s->task->position.x },
+			{ "task_y", s->task->position.y },
 			{ "task_priority", std::to_string(s->priority) },
 			{ "navigation_order", std::to_string(navigation_order++) },
 		});
 #endif
-
 	}
 }

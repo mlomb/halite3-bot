@@ -18,9 +18,10 @@ struct Cell {
 	Position pos;
 	int halite;
 	bool inspiration;
-	AreaInfo near_info;
+	AreaInfo near_info_3;
+	AreaInfo near_info_4;
 	Ship* ship_on_cell;
-	int enemy_reach_halite;
+	int enemy_reach_halite; // min
 };
 
 class Map {

@@ -115,7 +115,38 @@ Player& Game::GetMyPlayer()
 	return GetPlayer(my_id);
 }
 
+bool Game::IsDropoff(const Position pos)
+{
+	for (auto& pp : players)
+		if (pp.second.IsDropoff(pos))
+			return true;
+	return false;
+}
+
+Ship* Game::GetShipAt(const Position pos)
+{
+	for (auto& pp : players)
+		for (auto& ss : pp.second.ships)
+			if (ss.second->pos == pos)
+				return ss.second;
+	return nullptr;
+}
+
 bool Game::CanSpawnShip()
 {
 	return GetMyPlayer().halite >= hlt::constants::SHIP_COST;
+}
+
+bool Game::TransformIntoDropoff(Ship* s, std::vector<Command>& commands)
+{
+	auto& me = GetMyPlayer();
+
+	double budget = s->halite + map->GetCell(s->pos)->halite + me.halite;
+	if (budget >= hlt::constants::DROPOFF_COST) {
+		me.halite = budget - hlt::constants::DROPOFF_COST;
+		commands.push_back(TransformShipIntoDropoffCommand(s->ship_id));
+		me.dropoffs.push_back(s->pos);
+		return true;
+	}
+	return false;
 }

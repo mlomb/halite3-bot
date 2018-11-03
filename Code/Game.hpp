@@ -27,8 +27,11 @@ public:
 
 	Player& GetPlayer(PlayerID id);
 	Player& GetMyPlayer();
+	bool IsDropoff(const Position pos); // any player
+	Ship* GetShipAt(const Position pos); // any player
 
 	bool CanSpawnShip();
+	bool TransformIntoDropoff(Ship* s, std::vector<Command>& commands);
 
 	int remaining_turns;
 	int turn;
