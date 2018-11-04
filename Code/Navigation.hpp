@@ -62,6 +62,8 @@ public:
 
 	Strategy* strategy;
 	Game* game;
+
 	BlockedCell hits[64][64];
+	bool collided[64][64];
 	std::map<Position, OptimalPathMap> minCostCache;
 };

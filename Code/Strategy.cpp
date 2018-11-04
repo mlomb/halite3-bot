@@ -84,7 +84,13 @@ double Strategy::ShipTaskPriority(Ship* s, Task* t)
 				penalty = c->near_info_4.num_enemy_ships * 2;
 				double revenue = ((profit - penalty) / game->map->map_avg_halite) * 100.0;
 
-				double possible_priority = revenue / (double)(combined.turns);
+				double possible_priority;
+
+				if (game->num_players == 2)
+					possible_priority = revenue / (double)(combined.turns);
+				else
+					possible_priority = revenue / (double)(combined.turns * combined.turns);
+
 
 				/// -----------------------
 

@@ -102,6 +102,7 @@ void Navigation::Clear()
 	for (int x = 0; x < game->map->width; x++) {
 		for (int y = 0; y < game->map->height; y++) {
 			hits[x][y] = BlockedCell::EMPTY;
+			collided[x][y] = false;
 		}
 	}
 
@@ -173,6 +174,9 @@ std::vector<NavigationOption> Navigation::NavigationOptionsForShip(Ship* s)
 
 	for (const Direction d : dirs) {
 		Position pp = s->pos.DirectionalOffset(d);
+
+		if (collided[pp.x][pp.y])
+			continue;
 
 		Cell* c = game->map->GetCell(target);
 		bool hit_free = IsHitFree(pp);
@@ -375,11 +379,16 @@ void Navigation::Navigate(std::vector<Ship*> ships, std::vector<Command>& comman
 		commands.push_back(MoveCommand(s->ship_id, option.direction));
 
 		// Collision chain
-		Ship* shipInMovedLocation = me.ShipAt(option.pos);
+		Ship* shipInMovedLocation = game->GetShipAt(option.pos);
 		if (shipInMovedLocation) {
-			if (std::find(ships.begin(), ships.end(), shipInMovedLocation) != ships.end()) {
-				// this ship should be the next to be processed to avoid possible self collisions
-				shipInMovedLocation->priority += 100000000000;
+			if (shipInMovedLocation->player_id == me.id) {
+				if (std::find(ships.begin(), ships.end(), shipInMovedLocation) != ships.end()) {
+					// this ship should be the next to be processed to avoid possible self collisions
+					shipInMovedLocation->priority += 100000000000;
+				}
+			}
+			else {
+				collided[option.pos.x][option.pos.y] = true;
 			}
 		}
 
