@@ -15,6 +15,9 @@ double Strategy::ShipTaskPriority(Ship* s, Task* t)
 	Player& me = game->GetMyPlayer();
 
 	const Cell* c = game->map->GetCell(t->position);
+	int dist = s->pos.ToroidalDistanceTo(t->position);
+
+	const int DROP_THRESHOLD = 970;
 
 	switch (t->type) {
 	default:
@@ -25,31 +28,29 @@ double Strategy::ShipTaskPriority(Ship* s, Task* t)
 	case TaskType::TRANSFORM_INTO_DROPOFF:
 	{
 		// priority by distance
-		OptimalPathCell toDestCost = navigation->PathMinCost(s->pos, t->position);
-		return 1000000 + std::max(0, 10000 - toDestCost.turns);
+		return 1000000 + std::max(0, 10000 - dist);
 	}
 	case TaskType::DROP:
 	{
-		if (s->halite >= 950 || s->dropping) {
+		if (s->halite >= DROP_THRESHOLD || s->dropping) {
 			// only drop on the closest dropoff
 			if (me.ClosestDropoff(s->pos) == t->position) {
 				s->dropping = true;
-				return 10000 + s->halite;
+				return 100000 + s->halite;
 			}
 		}
 		return 0;
 	}
 	case TaskType::ATTACK:
 	{
+		/*
 		Ship* enemy_ship = c->ship_on_cell;
 
 		if (navigation->ShouldAttack(s->halite, c->near_info_3.num_ally_ships, enemy_ship->halite, c->near_info_3.num_enemy_ships)) {
-			OptimalPathCell toDestCost = navigation->PathMinCost(s->pos, t->position);
-			toDestCost.turns *= 2;
-
 			int dif = c->near_info_3.num_ally_ships - c->near_info_3.num_enemy_ships;
-			return (enemy_ship->halite - s->halite) / (double)(toDestCost.turns * toDestCost.turns) * (double)dif * 0.8;
+			return ((enemy_ship->halite - s->halite) / (double)(dist * dist)) * (double)dif * 0.8;
 		}
+		*/
 		return 0;
 	}
 	case TaskType::MINE:
@@ -59,59 +60,44 @@ double Strategy::ShipTaskPriority(Ship* s, Task* t)
 		if (s->dropping)
 			return 0;
 
-		// navigation cost
-		OptimalPathCell toDestCost = navigation->PathMinCost(s->pos, t->position);
-		toDestCost.turns *= 3;
-		OptimalPathCell toDropoffCost = navigation->PathMinCost(me.ClosestDropoff(t->position), t->position);
-
-		// mining
 		int halite_available = c->halite;
-		int halite_acum = s->halite;
-		double max_priority = 0;
+		int halite_ship = s->halite;
 
-		for (int mining_turns = 0; mining_turns < 25; mining_turns++) {
-			if (mining_turns > 0) {
-				/// -----------------------
-				double profit = 0;
-				double penalty = 0;
+		double best_priority = 0;
 
-				OptimalPathCell combined;
-				combined.haliteCost = toDestCost.haliteCost + toDropoffCost.haliteCost;
-				combined.turns = toDestCost.turns + toDropoffCost.turns + mining_turns;
-
-				profit = halite_acum + (c->near_info_4.avgHalite / 100.0) * 65;
-				penalty = c->near_info_4.num_ally_ships * 16;
-				penalty = c->near_info_4.num_enemy_ships * 2;
-				double revenue = ((profit - penalty) / game->map->map_avg_halite) * 100.0;
-
-				double possible_priority;
-
-				if (game->num_players == 2)
-					possible_priority = revenue / (double)(combined.turns);
-				else
-					possible_priority = revenue / (double)(combined.turns * combined.turns);
-
-
-				/// -----------------------
-
-				//out::Log(std::to_string(profit) + " -- " + std::to_string(toDestCost.turns) + " -- " + std::to_string(toDropoffCost.turns) + " -- " + std::to_string(mining_turns));
-
-				if (possible_priority > max_priority) {
-					max_priority = possible_priority;
-				}
-			}
-
+		for (int mining_turns = 1; mining_turns <= 20; mining_turns++) {
 			// Mine
 			int mined = ceil((1.0 / hlt::constants::EXTRACT_RATIO) * halite_available);
+			int mined_profit = mined;
 			if (c->inspiration) {
-				mined *= hlt::constants::INSPIRED_BONUS_MULTIPLIER + 1;
+				mined_profit *= hlt::constants::INSPIRED_BONUS_MULTIPLIER + 1;
 			}
-			halite_acum += mined;
-			halite_acum = std::min(halite_acum, hlt::constants::MAX_HALITE);
+
+			halite_ship += mined_profit;
+			halite_ship = std::min(halite_ship, hlt::constants::MAX_HALITE);
 			halite_available -= mined;
+
+			int time_cost = dist*3 + me.DistanceToClosestDropoff(t->position) + mining_turns;
+			double profit = 0;
+
+			profit = halite_ship + (c->near_info_4.avgHalite / game->map->map_avg_halite) * 100;
+			//profit += c->near_info_4.num_ally_ships * 10;
+			//penalty = c->near_info_4.num_ally_ships * 10;
+			//penalty = c->near_info_4.num_enemy_ships * 5;
+
+
+			double p = profit / (double)(time_cost);
+
+			if (p > best_priority) {
+				best_priority = p;
+			}
+
+			if (halite_ship >= DROP_THRESHOLD) {
+				break;
+			}
 		}
 
-		return max_priority;
+		return best_priority;
 	}
 	}
 
