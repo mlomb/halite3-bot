@@ -14,7 +14,7 @@ int main() {
 
 	Game game;
 
-	game.Initialize("mlomb-bot-v36");
+	game.Initialize("mlomb-bot-v37");
 	game.Play();
 
 	return 0;

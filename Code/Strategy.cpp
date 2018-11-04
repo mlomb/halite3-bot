@@ -87,9 +87,9 @@ double Strategy::ShipTaskPriority(Ship* s, Task* t)
 				double possible_priority;
 
 				if (game->num_players == 2)
-					possible_priority = revenue / (double)(combined.turns * combined.turns);
-				else
 					possible_priority = revenue / (double)(combined.turns);
+				else
+					possible_priority = revenue / (double)(combined.turns * combined.turns);
 
 
 				/// -----------------------
