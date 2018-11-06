@@ -3,6 +3,19 @@
 #include "Command.hpp"
 #include "Strategy.hpp"
 
+namespace features {
+	double time_cost_dist_target;
+	double time_cost_dist_dropoff;
+	double time_cost_mining;
+	double mine_avg_profit;
+	double mine_halite_ship_profit;
+	double mine_ally_ships_profit;
+	double mine_enemy_ships_profit;
+	double dropoff_ships_needed;
+	double dropoff_map_distance;
+	double dropoff_avg_threshold;
+}
+
 Game* Game::s_Instance = nullptr;
 
 Game::Game()
@@ -43,9 +56,35 @@ void Game::Initialize(const std::string& bot_name)
 	// INFO
 	out::Log("----------------------------");
 	out::Log("Bot: " + bot_name);
-	out::Log("Num players: " + num_players);
+	out::Log("Num players: " + std::to_string(num_players));
 	out::Log("Map: " + std::to_string(map->width) + "x" + std::to_string(map->height));
 	out::Log("Total Halite: " + std::to_string(total_halite));
+	out::Log("----------------------------");
+}
+
+void Game::LoadFeatures(json& features)
+{
+	out::Log("Features:");
+	for (json::iterator it = features.begin(); it != features.end(); ++it) {
+		std::string key = it.key();
+		double value = it.value().get<double>();
+
+		out::Log("  " + key + " = " + std::to_string(value));
+	}
+
+#define GET_FEATURE(name) if(features.find(#name) != features.end()) { features::name = features[#name]; }
+
+	GET_FEATURE(time_cost_dist_target);
+	GET_FEATURE(time_cost_dist_dropoff);
+	GET_FEATURE(time_cost_mining);
+	GET_FEATURE(mine_avg_profit);
+	GET_FEATURE(mine_halite_ship_profit);
+	GET_FEATURE(mine_ally_ships_profit);
+	GET_FEATURE(mine_enemy_ships_profit);
+	GET_FEATURE(dropoff_ships_needed);
+	GET_FEATURE(dropoff_map_distance);
+	GET_FEATURE(dropoff_avg_threshold);
+
 	out::Log("----------------------------");
 }
 

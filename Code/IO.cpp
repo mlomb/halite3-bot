@@ -8,6 +8,7 @@ namespace in {
 		std::string result;
 		std::getline(std::cin, result);
 		if (!std::cin.good()) {
+			out::Stopwatch::ShowSummary();
 			out::Log("Input connection from server closed. Exiting...");
 			exit(0);
 		}
@@ -22,6 +23,7 @@ namespace in {
 
 namespace out {
 	std::vector<std::string> Stopwatch::messages;
+	std::map<std::string, StopwatchSummaryEntry> Stopwatch::summary;
 
 	static std::ofstream log_file;
 	static std::vector<std::string> log_buffer;
@@ -114,6 +116,11 @@ namespace out {
 		long long ms = std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count();
 
 		messages.push_back(identifier + ": " + std::to_string(ms) + "ms");
+		
+		StopwatchSummaryEntry& s = summary[identifier];
+		s.ms_min = std::min(s.ms_min, ms);
+		s.ms_max = std::max(s.ms_max, ms);
+		s.ms_sum += ms;
 #endif
 	}
 
@@ -123,6 +130,18 @@ namespace out {
 			out::Log(s);
 		}
 		messages.clear();
+#endif
+	}
+
+	void Stopwatch::ShowSummary()
+	{
+#ifdef HALITE_LOCAL
+		for (auto& e : summary) {
+			out::Log(e.first + ": ");
+			out::Log("  MIN: " + std::to_string(e.second.ms_min) + "ms");
+			out::Log("  MAX: " + std::to_string(e.second.ms_max) + "ms");
+			out::Log("  AVG: " + std::to_string(e.second.ms_sum / (double)Game::Get()->turn) + "ms");
+		}
 #endif
 	}
 }

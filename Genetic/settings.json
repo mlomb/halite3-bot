@@ -1,0 +1,41 @@
+{
+	"population": 10,
+	"generations": 3000,
+	"features": {
+		"time_cost_dist_target": {
+			"hand": 3,
+			"min": 0,
+			"max": 30
+		},
+		"time_cost_dist_dropoff": {
+			"hand": 1,
+			"min": 0,
+			"max": 30
+		},
+		"time_cost_mining": {
+			"hand": 1,
+			"min": 0,
+			"max": 30
+		},
+		"mine_avg_profit": {
+			"hand": 100,
+			"min": 0,
+			"max": 50
+		},
+		"mine_halite_ship_profit": {
+			"hand": 1,
+			"min": 0,
+			"max": 50
+		},
+		"mine_ally_ships_profit": {
+			"hand": 0,
+			"min": -50,
+			"max": 50
+		},
+		"mine_enemy_ships_profit": {
+			"hand": 0,
+			"min": -50,
+			"max": 50
+		}
+	}
+}

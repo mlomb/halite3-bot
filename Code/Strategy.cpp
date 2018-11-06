@@ -77,16 +77,10 @@ double Strategy::ShipTaskPriority(Ship* s, Task* t)
 			halite_ship = std::min(halite_ship, hlt::constants::MAX_HALITE);
 			halite_available -= mined;
 
-			int time_cost = dist*3 + me.DistanceToClosestDropoff(t->position) + mining_turns;
-			double profit = 0;
+			double time_cost = dist * features::time_cost_dist_target + me.DistanceToClosestDropoff(t->position) * features::time_cost_dist_dropoff + mining_turns * features::time_cost_mining;
+			double profit = (c->near_info_4.avgHalite / game->map->map_avg_halite) * features::mine_avg_profit + halite_ship * features::mine_halite_ship_profit + c->near_info_4.num_ally_ships * features::mine_ally_ships_profit + c->near_info_4.num_enemy_ships * features::mine_enemy_ships_profit;
 
-			profit = halite_ship + (c->near_info_4.avgHalite / game->map->map_avg_halite) * 100;
-			//profit += c->near_info_4.num_ally_ships * 10;
-			//penalty = c->near_info_4.num_ally_ships * 10;
-			//penalty = c->near_info_4.num_enemy_ships * 5;
-
-
-			double p = profit / (double)(time_cost);
+			double p = profit / time_cost;
 
 			if (p > best_priority) {
 				best_priority = p;
@@ -140,7 +134,7 @@ bool Strategy::ShouldSpawnShip()
 	if (game->map->halite_remaining / (double)(game->map->width * game->map->height) < 60)
 		return false;
 
-	return game->turn <= 0.65 * hlt::constants::MAX_TURNS;
+	return game->turn <= 0.65 /* TODO: A feature? */ * hlt::constants::MAX_TURNS;
 }
 
 Position Strategy::BestDropoffSpot()
@@ -152,7 +146,7 @@ Position Strategy::BestDropoffSpot()
 	best_dropoff.y = -1;
 
 	if (stage == Stage::MINING) {
-		if (me.ships.size() >= 21 * me.dropoffs.size() && game->turn <= 0.75 * hlt::constants::MAX_TURNS) {
+		if (me.ships.size() >= features::dropoff_ships_needed * me.dropoffs.size() && game->turn <= 0.75 * hlt::constants::MAX_TURNS) {
 			// find a good spot for a dropoff
 			double bestRatio = -1;
 
@@ -160,10 +154,10 @@ Position Strategy::BestDropoffSpot()
 				for (int y = 0; y < game->map->height; y++) {
 					Position pos = { x, y };
 					int distance_to_closest_dropoff = me.DistanceToClosestDropoff(pos);
-					if (distance_to_closest_dropoff > std::ceil(game->map->width * 0.35)) {
+					if (distance_to_closest_dropoff > std::ceil(game->map->width * features::dropoff_map_distance)) {
 						AreaInfo info = game->map->GetAreaInfo(pos, 5);
 						if (info.num_ally_ships > 0 && info.num_ally_ships >= info.num_enemy_ships) {
-							if (info.avgHalite / game->map->map_avg_halite >= 1.35) {
+							if (info.avgHalite / game->map->map_avg_halite >= features::dropoff_avg_threshold) {
 								double ratio = info.avgHalite / (distance_to_closest_dropoff * distance_to_closest_dropoff);
 								if (ratio > bestRatio) {
 									bestRatio = ratio;
@@ -220,6 +214,7 @@ void Strategy::GenerateTasks() {
 		}
 	}
 
+	/*
 	for(auto& pp : game->players) {
 		if (pp.first == me.id) continue;
 		for (auto& ss : pp.second.ships) {
@@ -231,6 +226,7 @@ void Strategy::GenerateTasks() {
 			tasks.push_back(attackTask);
 		}
 	}
+	*/
 
 	Task* dumbTask = new Task();
 	dumbTask->type = TaskType::NONE;
@@ -243,7 +239,6 @@ void Strategy::GenerateTasks() {
 void Strategy::AssignTasks()
 {
 	out::Log("Assigning tasks...");
-	out::Stopwatch s("Assign Tasks");
 
 	Player& me = game->GetMyPlayer();
 
@@ -273,8 +268,10 @@ void Strategy::AssignTasks()
 		}
 	}
 
+	out::Log("Edges: " + std::to_string(edges.size()));
+
 	{
-		out::Stopwatch s("Edge sorting (" + std::to_string(edges.size()) + ")");
+		out::Stopwatch s("Edge sorting");
 
 		std::sort(edges.begin(), edges.end(), [](const Edge& a, const Edge& b) {
 			return a.priority > b.priority;
@@ -297,9 +294,11 @@ void Strategy::AssignTasks()
 			e.t->assigned.push_back(e.s);
 		}
 
+		/*
 		if (none_tasks > 0 && none_tasks / double(shipsAvailable.size()) >= 0.75) {
 			this->stage = Stage::SUICIDE;
 		}
+		*/
 	}
 }
 

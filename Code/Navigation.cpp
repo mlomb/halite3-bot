@@ -151,11 +151,9 @@ std::vector<NavigationOption> Navigation::NavigationOptionsForShip(Ship* s)
 	case TaskType::NONE:
 		target = s->pos;
 		break;
-	case TaskType::TRANSFORM_INTO_DROPOFF:
-		if (me.DistanceToClosestDropoff(s->pos) <= 3) {
-			policy = EnemyPolicy::NONE;
-		}
-		break;
+	}
+	if (me.DistanceToClosestDropoff(s->pos) <= 3) {
+		policy = EnemyPolicy::NONE;
 	}
 
 	std::vector<NavigationOption> options;
