@@ -69,10 +69,7 @@ int Player::TotalHalite()
 
 bool Player::IsDropoff(const Position pos)
 {
-	for (const Position& p : dropoffs)
-		if (p == pos)
-			return true;
-	return false;
+	return Game::Get()->map->GetCell(pos)->dropoff_owned == id;
 }
 
 Position Player::ClosestDropoff(const Position pos)
@@ -80,7 +77,7 @@ Position Player::ClosestDropoff(const Position pos)
 	Position closest;
 	int distance = INF;
 
-	for (const Position p : dropoffs) {
+	for (const Position& p : dropoffs) {
 		int dist = p.ToroidalDistanceTo(pos);
 		if (dist < distance) {
 			distance = dist;
@@ -96,7 +93,7 @@ int Player::DistanceToClosestDropoff(const Position pos)
 	return ClosestDropoff(pos).ToroidalDistanceTo(pos);
 }
 
-Ship* Player::ShipAt(const Position pos)
+Ship* Player::ShipAt(const Position& pos)
 {
 	return Game::Get()->map->GetCell(pos)->ship_on_cell;
 }

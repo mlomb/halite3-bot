@@ -14,7 +14,7 @@ double Strategy::ShipTaskPriority(Ship* s, Task* t)
 {
 	Player& me = game->GetMyPlayer();
 
-	const Cell* c = game->map->GetCell(t->position);
+	Cell* c = game->map->GetCell(t->position);
 	int dist = s->pos.ToroidalDistanceTo(t->position);
 
 	const int DROP_THRESHOLD = 970;
@@ -23,7 +23,7 @@ double Strategy::ShipTaskPriority(Ship* s, Task* t)
 	default:
 	case TaskType::NONE:
 	{
-		return 0.00001;
+		return 0.000001;
 	}
 	case TaskType::TRANSFORM_INTO_DROPOFF:
 	{
@@ -39,26 +39,25 @@ double Strategy::ShipTaskPriority(Ship* s, Task* t)
 				return 100000 + s->halite;
 			}
 		}
-		return 0;
+		return 0.00001;
 	}
 	case TaskType::ATTACK:
 	{
-		/*
 		Ship* enemy_ship = c->ship_on_cell;
 
 		if (navigation->ShouldAttack(s->halite, c->near_info_3.num_ally_ships, enemy_ship->halite, c->near_info_3.num_enemy_ships)) {
 			int dif = c->near_info_3.num_ally_ships - c->near_info_3.num_enemy_ships;
-			return ((enemy_ship->halite - s->halite) / (double)(dist * dist)) * (double)dif * 0.8;
+			return ((enemy_ship->halite - s->halite) / (double)(dist * dist)) * (double)dif * features::attack_mult;
 		}
-		*/
 		return 0;
 	}
 	case TaskType::MINE:
 	{
-		if (c->halite <= 35)
-			return 0;
 		if (s->dropping)
 			return 0;
+		if (c->near_info_4.avgHalite / game->map->map_avg_halite < 1 && c->halite < 100) {
+			return 0;
+		}
 
 		int halite_available = c->halite;
 		int halite_ship = s->halite;
@@ -77,8 +76,18 @@ double Strategy::ShipTaskPriority(Ship* s, Task* t)
 			halite_ship = std::min(halite_ship, hlt::constants::MAX_HALITE);
 			halite_available -= mined;
 
-			double time_cost = dist * features::time_cost_dist_target + me.DistanceToClosestDropoff(t->position) * features::time_cost_dist_dropoff + mining_turns * features::time_cost_mining;
-			double profit = (c->near_info_4.avgHalite / game->map->map_avg_halite) * features::mine_avg_profit + halite_ship * features::mine_halite_ship_profit + c->near_info_4.num_ally_ships * features::mine_ally_ships_profit + c->near_info_4.num_enemy_ships * features::mine_enemy_ships_profit;
+			double time_cost = 0;
+			double profit = 0;
+
+			//profit += (c->near_info_4.avgHalite / game->map->map_avg_halite) * features::mine_avg_profit;
+			//profit += halite_ship * features::mine_halite_ship_profit;
+			//profit += (c->near_info_4.num_ally_ships / (double)c->near_info_4.num_enemy_ships) * features::mine_ratio_profit;
+
+			//time_cost += dist * features::time_cost_dist_target + (closestDropoffDist[t->position.x][t->position.y] + mining_turns) * features::time_cost_dist_dropoff_mining;
+
+			time_cost = dist * 4 + me.DistanceToClosestDropoff(t->position) + mining_turns;
+			profit = halite_ship;
+
 
 			double p = profit / time_cost;
 
@@ -121,7 +130,6 @@ bool Strategy::ShouldSpawnShip()
 
 	double halite_collected_perc = game->map->halite_remaining / (double)game->total_halite;
 
-
 	// HARD MAX TURNS
 	if (game->turn >= 0.8 * hlt::constants::MAX_TURNS)
 		return false;
@@ -153,7 +161,7 @@ Position Strategy::BestDropoffSpot()
 			for (int x = 0; x < game->map->width; x++) {
 				for (int y = 0; y < game->map->height; y++) {
 					Position pos = { x, y };
-					int distance_to_closest_dropoff = me.DistanceToClosestDropoff(pos);
+					int distance_to_closest_dropoff = closestDropoffDist[x][y];
 					if (distance_to_closest_dropoff > std::ceil(game->map->width * features::dropoff_map_distance)) {
 						AreaInfo info = game->map->GetAreaInfo(pos, 5);
 						if (info.num_ally_ships > 0 && info.num_ally_ships >= info.num_enemy_ships) {
@@ -204,10 +212,14 @@ void Strategy::GenerateTasks() {
 				task->policy = EnemyPolicy::DODGE;
 				task->max_ships = 1;
 			}
-			else {
+			else if(game->map->GetCell(task->position)->halite > 35) {
 				task->type = TaskType::MINE;
-				task->policy = EnemyPolicy::ENGAGE;
+				task->policy = EnemyPolicy::DODGE; // TODO ENGAGE
 				task->max_ships = 1;
+			}
+			else {
+				delete task;
+				continue;
 			}
 
 			tasks.push_back(task);
@@ -248,7 +260,8 @@ void Strategy::AssignTasks()
 		Task* t;
 	};
 
-	std::vector<Edge> edges;
+	static std::vector<Edge> edges;
+	edges.clear();
 	edges.reserve(shipsAvailable.size() * tasks.size());
 
 	{
@@ -257,9 +270,9 @@ void Strategy::AssignTasks()
 		for (Ship* s : shipsAvailable) {
 			for(Task* t : tasks) {
 				double priority = ShipTaskPriority(s, t);
-				if (priority < 0) continue;
+				if (priority <= 0) continue;
 
-				edges.push_back({
+				edges.emplace_back(Edge {
 					priority,
 					s,
 					t
@@ -296,7 +309,10 @@ void Strategy::AssignTasks()
 
 		/*
 		if (none_tasks > 0 && none_tasks / double(shipsAvailable.size()) >= 0.75) {
-			this->stage = Stage::SUICIDE;
+			double halite_collected_perc = game->map->halite_remaining / (double)game->total_halite;
+			if (halite_collected_perc < 0.2) {
+				this->stage = Stage::SUICIDE;
+			}
 		}
 		*/
 	}
@@ -307,12 +323,14 @@ void Strategy::Execute(std::vector<Command>& commands)
 	Player& me = game->GetMyPlayer();
 
 	//--------- Trigger Suicide stage
-	int min_turns = 0;
-	for (auto& p : me.ships) {
-		min_turns = std::max(min_turns, me.DistanceToClosestDropoff(p.second->pos));
-	}
-	if (game->turn >= hlt::constants::MAX_TURNS - (min_turns * 1.1)) {
-		this->stage = Stage::SUICIDE;
+	if (game->turn > 5) {
+		int min_turns = 0;
+		for (auto& p : me.ships) {
+			min_turns = std::max(min_turns, closestDropoffDist[p.second->pos.x][p.second->pos.y]);
+		}
+		if (game->turn >= hlt::constants::MAX_TURNS - (min_turns * 1.1)) {
+			this->stage = Stage::SUICIDE;
+		}
 	}
 
 	//-------------------------------
@@ -344,6 +362,7 @@ void Strategy::Execute(std::vector<Command>& commands)
 		shipsAvailable.push_back(s);
 	}
 
+	FillClosestDropoffDist();
 	GenerateTasks();
 	AssignTasks();
 
@@ -379,4 +398,15 @@ Ship* Strategy::GetShipWithHighestPriority(std::vector<Ship*>& ships)
 		return nullptr;
 	Ship* s = *it;
 	return s;
+}
+
+void Strategy::FillClosestDropoffDist()
+{
+	Player& me = game->GetMyPlayer();
+
+	for (int x = 0; x < game->map->width; x++) {
+		for (int y = 0; y < game->map->height; y++) {
+			closestDropoffDist[x][y] = me.DistanceToClosestDropoff({ x, y });
+		}
+	}
 }

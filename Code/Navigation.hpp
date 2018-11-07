@@ -52,7 +52,6 @@ public:
 	Navigation(Strategy* strategy);
 
 	void PathMinCostFromMap(Position start, EnemyPolicy policy, OptimalPathMap& map);
-	OptimalPathCell PathMinCost(Position start, Position end);
 
 	void Clear();
 	bool IsHitFree(const Position pos);
@@ -65,5 +64,4 @@ public:
 
 	BlockedCell hits[64][64];
 	bool collided[64][64];
-	std::map<Position, OptimalPathMap> minCostCache;
 };

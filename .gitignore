@@ -12,3 +12,4 @@ __pycache__/
 Build/
 Analysis/
 OLD/
+*/node_modules/*

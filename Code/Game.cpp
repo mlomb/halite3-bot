@@ -4,16 +4,22 @@
 #include "Strategy.hpp"
 
 namespace features {
-	double time_cost_dist_target;
-	double time_cost_dist_dropoff;
-	double time_cost_mining;
 	double mine_avg_profit;
 	double mine_halite_ship_profit;
-	double mine_ally_ships_profit;
-	double mine_enemy_ships_profit;
+	double mine_ratio_profit;
+	double time_cost_dist_target;
+	double time_cost_dist_dropoff_mining;
+
 	double dropoff_ships_needed;
 	double dropoff_map_distance;
 	double dropoff_avg_threshold;
+
+	double attack_mult;
+	double enemy_halite_worth;
+	double min_ally_ships_near;
+	double ally_enemy_ratio;
+	double ally_halite_less;
+	double halite_ratio_less;
 }
 
 Game* Game::s_Instance = nullptr;
@@ -23,11 +29,6 @@ Game::Game()
 	s_Instance = this;
 	strategy = new Strategy(this);
 	map = new Map(this);
-}
-
-Game* Game::Get()
-{
-	return s_Instance;
 }
 
 void Game::Initialize(const std::string& bot_name)
@@ -74,16 +75,22 @@ void Game::LoadFeatures(json& features)
 
 #define GET_FEATURE(name) if(features.find(#name) != features.end()) { features::name = features[#name]; }
 
-	GET_FEATURE(time_cost_dist_target);
-	GET_FEATURE(time_cost_dist_dropoff);
-	GET_FEATURE(time_cost_mining);
 	GET_FEATURE(mine_avg_profit);
 	GET_FEATURE(mine_halite_ship_profit);
-	GET_FEATURE(mine_ally_ships_profit);
-	GET_FEATURE(mine_enemy_ships_profit);
+	GET_FEATURE(mine_ratio_profit);
+	GET_FEATURE(time_cost_dist_target);
+	GET_FEATURE(time_cost_dist_dropoff_mining);
+
 	GET_FEATURE(dropoff_ships_needed);
 	GET_FEATURE(dropoff_map_distance);
 	GET_FEATURE(dropoff_avg_threshold);
+
+	GET_FEATURE(attack_mult);
+	GET_FEATURE(enemy_halite_worth);
+	GET_FEATURE(min_ally_ships_near);
+	GET_FEATURE(ally_enemy_ratio);
+	GET_FEATURE(ally_halite_less);
+	GET_FEATURE(halite_ratio_less);
 
 	out::Log("----------------------------");
 }
@@ -185,6 +192,7 @@ bool Game::TransformIntoDropoff(Ship* s, std::vector<Command>& commands)
 		me.halite = budget - hlt::constants::DROPOFF_COST;
 		commands.push_back(TransformShipIntoDropoffCommand(s->ship_id));
 		me.dropoffs.push_back(s->pos);
+		map->GetCell(s->pos)->dropoff_owned = me.id;
 		return true;
 	}
 	return false;

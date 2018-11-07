@@ -14,16 +14,17 @@ int main(int argc, char **argv) {
 
 	Game game;
 
-	game.Initialize("mlomb-bot-v39");
+	game.Initialize("mlomb-bot-v44");
 	{
 		// Load features
 
-		std::string game_code = std::to_string(game.num_players) + "p_" + std::to_string(game.map->width);
+		std::string game_code = std::to_string(game.num_players) + "p";
+		std::string game_code_specific = game_code + "_" + std::to_string(game.map->width);
 
 		std::vector<std::string> files = {
 			"best_default.json",
 			"best_" + game_code + ".json",
-			"D:\\Users\\Desktop\\halite3-bot\\Genetic\\best_" + game_code + ".json",
+			"best_" + game_code_specific + ".json",
 		};
 		
 		for (std::string filename : files) {

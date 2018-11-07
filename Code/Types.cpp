@@ -2,32 +2,6 @@
 
 #include "Game.hpp"
 
-Position Position::DirectionalOffset(const Direction d) const {
-	auto dx = 0;
-	auto dy = 0;
-	switch (d) {
-	case Direction::NORTH:
-		dy = -1;
-		break;
-	case Direction::SOUTH:
-		dy = 1;
-		break;
-	case Direction::EAST:
-		dx = 1;
-		break;
-	case Direction::WEST:
-		dx = -1;
-		break;
-	case Direction::STILL:
-		// No move
-		break;
-	}
-	return Position(x + dx, y + dy);
-}
-
-int Position::DistanceTo(const Position& other) const {
-	return std::abs(x - other.x) + std::abs(y - other.y);
-}
 int Position::ToroidalDistanceTo(const Position& other) const {
 	Game* g = Game::Get();
 
@@ -49,7 +23,7 @@ void Position::Wrap() {
 	y = (y + wy) % wy;
 }
 
-std::mt19937_64 & mt()
+std::mt19937_64& mt()
 {
 	thread_local static std::random_device srd;
 	thread_local static std::mt19937_64 smt(srd());

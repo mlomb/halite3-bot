@@ -22,6 +22,7 @@ struct Cell {
 	AreaInfo near_info_4;
 	Ship* ship_on_cell;
 	int enemy_reach_halite; // min
+	PlayerID dropoff_owned;
 };
 
 class Map {
@@ -31,7 +32,16 @@ public:
 	void Initialize();
 	void Update();
 
-	Cell* GetCell(Position pos);
+	inline Cell* GetCell(const Position& pos) {
+#ifdef HALITE_LOCAL
+		/*
+		if (pos.x < 0 || pos.y < 0 || pos.x >= width || pos.y >= height) {
+		out::Log("GetCell out of bounds: " + pos.str() + " -- Crash incoming");
+		}
+		*/
+#endif
+		return cells[pos.y][pos.x];
+	};
 	AreaInfo GetAreaInfo(Position p, int max_manhattan_distance);
 
 	Game* game;

@@ -54,6 +54,7 @@ void Map::Update()
 			c->inspiration = c->near_info_4.num_enemy_ships >= hlt::constants::INSPIRATION_SHIP_COUNT;
 			c->ship_on_cell = nullptr;
 			c->enemy_reach_halite = -1;
+			c->dropoff_owned = -1;
 
 			halite_remaining += c->halite;
 		}
@@ -61,13 +62,16 @@ void Map::Update()
 
 	map_avg_halite = halite_remaining / (double)(width * height);
 
+	std::vector<Direction> dirs = DIRECTIONS;
+	dirs.push_back(Direction::STILL);
+
 	// fill ship_on_cell
 	for (auto& pp : game->players) {
 		for (auto& ss : pp.second.ships) {
 			GetCell(ss.second->pos)->ship_on_cell = ss.second;
 
 			if (pp.first != game->my_id) {
-				for (Direction d : DIRECTIONS) {
+				for (Direction d : dirs) {
 					Position p = ss.second->pos.DirectionalOffset(d);
 					int& rh = GetCell(p)->enemy_reach_halite;
 					if (rh == -1 || ss.second->halite < rh) {
@@ -76,17 +80,10 @@ void Map::Update()
 				}
 			}
 		}
+		for (Position& d : pp.second.dropoffs) {
+			GetCell(d)->dropoff_owned = pp.first;
+		}
 	}
-}
-
-Cell* Map::GetCell(Position pos)
-{
-#ifdef HALITE_LOCAL
-	if (pos.x < 0 || pos.y < 0 || pos.x >= width || pos.y >= height) {
-		out::Log("GetCell out of bounds: " + pos.str() + " -- Crash incoming");
-	}
-#endif
-	return cells[pos.y][pos.x];
 }
 
 AreaInfo Map::GetAreaInfo(Position p, int max_manhattan_distance)

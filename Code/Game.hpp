@@ -15,23 +15,29 @@
 class Strategy;
 
 namespace features {
-	extern double time_cost_dist_target;
-	extern double time_cost_dist_dropoff;
-	extern double time_cost_mining;
 	extern double mine_avg_profit;
 	extern double mine_halite_ship_profit;
-	extern double mine_ally_ships_profit;
-	extern double mine_enemy_ships_profit;
+	extern double mine_ratio_profit;
+	extern double time_cost_dist_target;
+	extern double time_cost_dist_dropoff_mining;
+
 	extern double dropoff_ships_needed;
 	extern double dropoff_map_distance;
 	extern double dropoff_avg_threshold;
+
+	extern double attack_mult;
+	extern double enemy_halite_worth;
+	extern double min_ally_ships_near;
+	extern double ally_enemy_ratio;
+	extern double ally_halite_less;
+	extern double halite_ratio_less;
 }
 
 class Game {
 public:
 	Game();
-
-	static Game* Get();
+	
+	inline static Game* Get() { return s_Instance; }
 
 	void Initialize(const std::string& bot_name);
 	void LoadFeatures(json& features);

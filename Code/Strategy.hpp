@@ -33,6 +33,7 @@ public:
 	bool ShouldSpawnShip();
 
 	Ship* GetShipWithHighestPriority(std::vector<Ship*>& ships);
+	void FillClosestDropoffDist();
 
 	Game* game;
 	Navigation* navigation;
@@ -40,4 +41,5 @@ public:
 	Stage stage;
 	std::vector<Ship*> shipsAvailable;
 	std::vector<Task*> tasks;
+	int closestDropoffDist[64][64];
 };

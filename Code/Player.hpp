@@ -40,7 +40,8 @@ public:
 	bool IsDropoff(const Position pos);
 	Position ClosestDropoff(const Position pos);
 	int DistanceToClosestDropoff(const Position pos);
-	Ship* ShipAt(const Position pos);
+	Ship* ShipAt(const Position& pos);
+
 
 	PlayerID id;
 	Position shipyard_position;

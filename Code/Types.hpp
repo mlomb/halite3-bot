@@ -63,8 +63,31 @@ struct Position {
 	
 	std::string str() const { return "{ " + std::to_string(x) + ", " + std::to_string(y) + " }"; }
 
-	Position DirectionalOffset(const Direction d) const;
-	int DistanceTo(const Position& other) const;
+	inline Position DirectionalOffset(const Direction d) const {
+		auto dx = 0;
+		auto dy = 0;
+		switch (d) {
+		case Direction::NORTH:
+			dy = -1;
+			break;
+		case Direction::SOUTH:
+			dy = 1;
+			break;
+		case Direction::EAST:
+			dx = 1;
+			break;
+		case Direction::WEST:
+			dx = -1;
+			break;
+		case Direction::STILL:
+			// No move
+			break;
+		}
+		return Position(x + dx, y + dy);
+	}
+	inline int DistanceTo(const Position& other) const {
+		return std::abs(x - other.x) + std::abs(y - other.y);
+	}
 	int ToroidalDistanceTo(const Position& other) const;
 	void Wrap();
 };

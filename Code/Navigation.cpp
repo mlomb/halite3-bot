@@ -11,6 +11,7 @@ Navigation::Navigation(Strategy* strategy)
 void Navigation::PathMinCostFromMap(Position start, EnemyPolicy policy, OptimalPathMap& map)
 {
 	Player& me = game->GetMyPlayer();
+	Map* game_map = game->map;
 
 	std::queue<Position> q;
 
@@ -50,11 +51,11 @@ void Navigation::PathMinCostFromMap(Position start, EnemyPolicy policy, OptimalP
 			*/
 
 			OptimalPathCell new_state;
-			new_state.haliteCost = r.haliteCost + floor(0.1 * (double)game->map->GetCell(p)->halite);
+			new_state.haliteCost = r.haliteCost + floor(0.1 * (double)game_map->GetCell(p)->halite);
 			new_state.turns = r.turns + 1;
 			new_state.expanded = false;
 			new_state.added = true;
-			new_state.ships_on_path = r.ships_on_path + (me.ShipAt(new_pos) ? 1 : 0);
+			//new_state.ships_on_path = r.ships_on_path + (me.ShipAt(new_pos) ? 1 : 0);
 			new_state.tor_dist = start.ToroidalDistanceTo(new_pos);
 
 			// TODO Sure?
@@ -77,27 +78,9 @@ void Navigation::PathMinCostFromMap(Position start, EnemyPolicy policy, OptimalP
 	}
 }
 
-OptimalPathCell Navigation::PathMinCost(Position start, Position end)
-{
-	auto it = minCostCache.find(start);
-	if (it != minCostCache.end()) {
-		return (*it).second.cells[end.x][end.y];
-	}
-
-	// not cached
-	OptimalPathMap map = {};
-
-	PathMinCostFromMap(start, EnemyPolicy::NONE, map);
-	minCostCache.emplace(start, map);
-
-	return map.cells[end.x][end.y];
-}
-
 void Navigation::Clear()
 {
 	Player& me = game->GetMyPlayer();
-
-	minCostCache.clear();
 
 	for (int x = 0; x < game->map->width; x++) {
 		for (int y = 0; y < game->map->height; y++) {
@@ -133,16 +116,17 @@ bool Navigation::IsHitFree(const Position pos)
 bool Navigation::ShouldAttack(int allyHalite, int allyShips, int enemyHalite, int enemyShips) {
 
 	return
-		enemyHalite >= 100 && // is worth it
-		allyShips > 3 && // there are some ally ships to pick the halite
-		allyShips > enemyShips && // we are one more than them
-		allyHalite < 650 && // dont suicide if we have some halite
-		allyHalite / (double)(enemyHalite + 1) <= 0.65; // (core) how much are we going to win / they loose
+		enemyHalite >= features::enemy_halite_worth && // is worth it
+		allyShips > features::min_ally_ships_near && // there are some ally ships to pick the halite
+		allyShips / (double)enemyShips > features::ally_enemy_ratio && // we are one more than them
+		allyHalite < features::ally_halite_less && // dont suicide if we have some halite
+		allyHalite / (double)(enemyHalite + 1) <= features::halite_ratio_less; // (core) how much are we going to win / they loose
 }
 
 std::vector<NavigationOption> Navigation::NavigationOptionsForShip(Ship* s)
 {
 	Player& me = game->GetMyPlayer();
+	Map* game_map = game->map;
 
 	Position target = s->task->position;
 	EnemyPolicy policy = s->task->policy;
@@ -152,7 +136,7 @@ std::vector<NavigationOption> Navigation::NavigationOptionsForShip(Ship* s)
 		target = s->pos;
 		break;
 	}
-	if (me.DistanceToClosestDropoff(s->pos) <= 3) {
+	if (strategy->closestDropoffDist[s->pos.x][s->pos.y] <= 3) {
 		policy = EnemyPolicy::NONE;
 	}
 
@@ -176,9 +160,10 @@ std::vector<NavigationOption> Navigation::NavigationOptionsForShip(Ship* s)
 		if (collided[pp.x][pp.y])
 			continue;
 
-		Cell* c = game->map->GetCell(target);
+		Cell* c = game_map->GetCell(target);
+		Cell* moving_cell = game_map->GetCell(pp);
 		bool hit_free = IsHitFree(pp);
-		Ship* other_ship = game->map->GetCell(pp)->ship_on_cell;
+		Ship* other_ship = moving_cell->ship_on_cell;
 		bool is_other_enemy = other_ship && other_ship->player_id != me.id;
 		AreaInfo& info_3 = c->near_info_3;
 
@@ -189,7 +174,7 @@ std::vector<NavigationOption> Navigation::NavigationOptionsForShip(Ship* s)
 			// Need to dodge?
 			if (policy == EnemyPolicy::DODGE) {
 				// (the enemy ship to us)
-				int rh = game->map->GetCell(pp)->enemy_reach_halite;
+				int rh = moving_cell->enemy_reach_halite;
 				if (rh != -1) {
 					if (ShouldAttack(rh, info_3.num_enemy_ships, s->halite + c->halite, info_3.num_ally_ships) ||
 						(3 * s->halite > rh && s->halite >= 450)) {
@@ -314,6 +299,9 @@ void Navigation::Navigate(std::vector<Ship*> ships, std::vector<Command>& comman
 		}
 	}
 
+	// sort, just why not
+	strategy->GetShipWithHighestPriority(ships);
+
 	struct NavigationCell {
 		double costRank = 0;
 
@@ -338,6 +326,7 @@ void Navigation::Navigate(std::vector<Ship*> ships, std::vector<Command>& comman
 	}
 
 	int navigation_order = 0;
+	std::mt19937_64& mersenne_twister = mt();
 
 	while (!ships.empty()) {
 		// Take the one with the highest priority
@@ -355,14 +344,14 @@ void Navigation::Navigate(std::vector<Ship*> ships, std::vector<Command>& comman
 		auto options = NavigationOptionsForShip(s);
 		int salt = game->turn + game->map->halite_remaining;
 
-		std::sort(options.begin(), options.end(), [s, &salt, &navigationMap, &random_01](const NavigationOption& a, const NavigationOption& b) {
+		std::sort(options.begin(), options.end(), [s, &salt, &navigationMap, &mersenne_twister, &random_01](const NavigationOption& a, const NavigationOption& b) {
 			if (fabs(a.optionCost - b.optionCost) <= 700) { // almost equal
 				double mpA = navigationMap[a.pos.x][a.pos.y].costRank - a.optionCostByRank;
 				double mpB = navigationMap[b.pos.x][b.pos.y].costRank - b.optionCostByRank;
 
 				if (fabs(mpA - mpB) <= 200) {
 					mt().seed(salt + s->ship_id * (a.option_index + 1) * (b.option_index + 1));
-					return random_01(mt()) >= 0.5;
+					return random_01(mersenne_twister) >= 0.5;
 				}
 				else
 					return mpA < mpB;
@@ -380,10 +369,8 @@ void Navigation::Navigate(std::vector<Ship*> ships, std::vector<Command>& comman
 		Ship* shipInMovedLocation = game->GetShipAt(option.pos);
 		if (shipInMovedLocation) {
 			if (shipInMovedLocation->player_id == me.id) {
-				if (std::find(ships.begin(), ships.end(), shipInMovedLocation) != ships.end()) {
-					// this ship should be the next to be processed to avoid possible self collisions
-					shipInMovedLocation->priority += 100000000000;
-				}
+				// this ship should be the next to be processed to avoid possible self collisions
+				shipInMovedLocation->priority += 100000000000;
 			}
 			else {
 				collided[option.pos.x][option.pos.y] = true;
