@@ -6,6 +6,8 @@
 #include <stdlib.h>
 #include <algorithm>
 
+class Ship;
+
 const int INF = 99999999;
 
 typedef int PlayerID;
@@ -33,9 +35,10 @@ enum Stage {
 enum class TaskType {
 	NONE = 0,
 	MINE = 1,
-	DROP = 2,
-	ATTACK = 3,
-	TRANSFORM_INTO_DROPOFF = 4
+	ATTACK = 2,
+	DROP = 3,
+	TRANSFORM_INTO_DROPOFF = 4,
+	OVERRIDE = 5
 };
 
 enum class EnemyPolicy {
@@ -90,6 +93,13 @@ struct Position {
 	}
 	int ToroidalDistanceTo(const Position& other) const;
 	void Wrap();
+};
+
+struct ShipTask {
+	Position position;
+	TaskType type;
+	EnemyPolicy policy;
+	double priority;
 };
 
 std::mt19937_64& mt();

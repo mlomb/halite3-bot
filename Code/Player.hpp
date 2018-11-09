@@ -15,18 +15,11 @@ struct Ship {
 	int halite;
 	bool dead;
 
-	double priority;
-	Task* task;
+	ShipTask task;
 
 	// STRATEGY-SPECIFIC
+	bool assigned = false;
 	bool dropping = false;
-
-#ifdef HALITE_LOCAL
-	// METRICS
-	bool last_dropping_state = false;
-	int dropping_start_turn;
-	Position dropping_start;
-#endif
 };
 
 class Player {
@@ -41,6 +34,7 @@ public:
 	Position ClosestDropoff(const Position pos);
 	int DistanceToClosestDropoff(const Position pos);
 	Ship* ShipAt(const Position& pos);
+	Ship* ClosestShipAt(const Position& pos);
 
 
 	PlayerID id;

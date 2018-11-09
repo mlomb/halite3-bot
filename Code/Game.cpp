@@ -189,6 +189,7 @@ bool Game::TransformIntoDropoff(Ship* s, std::vector<Command>& commands)
 		commands.push_back(TransformShipIntoDropoffCommand(s->ship_id));
 		me.dropoffs.push_back(s->pos);
 		map->GetCell(s->pos)->dropoff_owned = me.id;
+		map->GetCell(s->pos)->halite = 0;
 		return true;
 	}
 	return false;

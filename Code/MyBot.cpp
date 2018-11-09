@@ -14,7 +14,7 @@ int main(int argc, char **argv) {
 
 	Game game;
 
-	game.Initialize("mlomb-bot-v48");
+	game.Initialize("mlomb-bot-v49");
 	{
 		// Load features
 
@@ -45,6 +45,7 @@ int main(int argc, char **argv) {
 			}
 		}
 
+		// override with args
 		if (argc == 2) {
 			std::string json_str = std::string(argv[1]);
 			out::Log("Input JSON: " + json_str);

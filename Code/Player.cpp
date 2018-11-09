@@ -98,9 +98,28 @@ Ship* Player::ShipAt(const Position& pos)
 	return Game::Get()->map->GetCell(pos)->ship_on_cell;
 }
 
+Ship* Player::ClosestShipAt(const Position& pos)
+{
+	Ship* closest_ship = nullptr;
+	int dist = INF;
+
+	for (auto& sp : ships) {
+		int d = sp.second->pos.ToroidalDistanceTo(pos);
+		if (d < dist) {
+			closest_ship = sp.second;
+			dist = d;
+		}
+	}
+
+	return closest_ship;
+}
+
 void Player::SortByTaskPriority(std::vector<Ship*>& ships)
 {
 	std::sort(ships.begin(), ships.end(), [](const Ship* a, const Ship* b) {
-		return a->priority < b->priority;
+		if (a->task.type == b->task.type)
+			return a->task.priority > b->task.priority;
+		else
+			return static_cast<int>(a->task.type) > static_cast<int>(b->task.priority);
 	});
 }

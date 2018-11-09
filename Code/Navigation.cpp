@@ -113,25 +113,15 @@ bool Navigation::IsHitFree(const Position pos)
 		   hits[pos.x][pos.y] == BlockedCell::GHOST;
 }
 
-bool Navigation::ShouldAttack(int allyHalite, int allyShips, int enemyHalite, int enemyShips) {
-
-	return
-		enemyHalite >= features::enemy_halite_worth && // is worth it
-		allyShips > features::min_ally_ships_near && // there are some ally ships to pick the halite
-		allyShips / (double)enemyShips > features::ally_enemy_ratio && // we are one more than them
-		allyHalite < features::ally_halite_less && // dont suicide if we have some halite
-		allyHalite / (double)(enemyHalite + 1) <= features::halite_ratio_less; // (core) how much are we going to win / they loose
-}
-
 std::vector<NavigationOption> Navigation::NavigationOptionsForShip(Ship* s)
 {
 	Player& me = game->GetMyPlayer();
 	Map* game_map = game->map;
 
-	Position target = s->task->position;
-	EnemyPolicy policy = s->task->policy;
+	Position target = s->task.position;
+	EnemyPolicy policy = s->task.policy;
 
-	switch (s->task->type) {
+	switch (s->task.type) {
 	case TaskType::NONE:
 		target = s->pos;
 		break;
@@ -146,7 +136,7 @@ std::vector<NavigationOption> Navigation::NavigationOptionsForShip(Ship* s)
 	PathMinCostFromMap(target, policy, map);
 
 	std::vector<Direction> dirs = DIRECTIONS;
-	if (!me.IsDropoff(s->pos) || strategy->stage == Stage::SUICIDE) {
+	if (!me.IsDropoff(s->pos) || strategy->allow_dropoff_collision) {
 		//if (target.ToroidalDistanceTo(s->pos) <= 1 || strategy->stage == Stage::SUICIDE) { // if target and is not a dropoff
 			dirs.push_back(Direction::STILL);
 		//}
@@ -266,47 +256,31 @@ void Navigation::Navigate(std::vector<Ship*> ships, std::vector<Command>& comman
 
 	Player& me = game->GetMyPlayer();
 	std::uniform_real_distribution<double> random_01(0.0, 1.0);
-
-#ifdef HALITE_LOCAL
-	static double navigationEfficiency = 0;
-	static int navigationEfficiency_samples = 0;
-#endif
+	std::mt19937_64& mersenne_twister = mt();
+	int navigation_order = 0;
 
 	std::vector<Ship*>::iterator it = ships.begin();
 	while (it != ships.end()) {
 		Ship* s = *it;
-
-#ifdef HALITE_LOCAL
-		// Measure Navigation efficiency
-		if (s->last_dropping_state != s->dropping) {
-			if (s->dropping) {
-				s->dropping_start = s->pos;
-				s->dropping_start_turn = game->turn;
-			}
-			else {
-				double eff = s->dropping_start.ToroidalDistanceTo(s->pos) / (double)(game->turn - s->dropping_start_turn);
-				navigationEfficiency += eff;
-				navigationEfficiency_samples++;
-
-				s->dropping_start_turn = 0;
-			}
-			s->last_dropping_state = s->dropping;
-		}
-#endif
-
-		if (s->halite < floor(game->map->GetCell(s->pos)->halite * 0.1) ||
-			(strategy->stage == Stage::SUICIDE && me.IsDropoff(s->pos))) {
+		
+		if (s->halite < floor(game->map->GetCell(s->pos)->halite * 0.1)) {
 			hits[s->pos.x][s->pos.y] = BlockedCell::TRANSIENT;
 			commands.push_back(MoveCommand(s->ship_id, Direction::STILL));
 			it = ships.erase(it);
+
+#ifdef HALITE_LOCAL
+			out::LogShip(s->ship_id, {
+				{ "task_type", s->task.type },
+				{ "task_x", s->task.position.x },
+				{ "task_y", s->task.position.y },
+				{ "task_priority", s->task.priority },
+				{ "navigation_order", navigation_order++ },
+				});
+#endif
 			continue;
 		}
 		++it;
 	}
-
-#ifdef HALITE_LOCAL
-	out::Log("Navigation Efficiency (" + std::to_string(navigationEfficiency_samples) + "): " + std::to_string(navigationEfficiency / (double)navigationEfficiency_samples));
-#endif
 
 	// Prevent dropoff deadlock
 	for (Position dropoff : game->GetMyPlayer().dropoffs) {
@@ -316,21 +290,20 @@ void Navigation::Navigate(std::vector<Ship*> ships, std::vector<Command>& comman
 			Ship* s = me.ShipAt(dropoff.DirectionalOffset(d));
 			if (s) {
 				blocked++;
-				if (s->task && s->task->position == dropoff)
+				if (s->task.position == dropoff)
 					ships_near_dropoff.push_back(s);
 			}
 		}
 
 		if (ships_near_dropoff.size() > 1) {
 			Ship* s = strategy->GetShipWithHighestPriority(ships_near_dropoff);
-			if (s) {
-				s->priority += 1000000000;
-			}
+			if (s)
+				s->task.type = TaskType::OVERRIDE;
 		}
 		else if (blocked == DIRECTIONS.size()) {
 			Ship* s = me.ShipAt(dropoff);
 			if (s)
-				s->priority += 1000000000;
+				s->task.type = TaskType::OVERRIDE;
 		}
 	}
 
@@ -354,21 +327,18 @@ void Navigation::Navigate(std::vector<Ship*> ships, std::vector<Command>& comman
 		auto idealOptions = NavigationOptionsForShip(s);
 		for (NavigationOption& no : idealOptions) {
 			navigationMap[no.pos.x][no.pos.y] += no;
-			if (no.option_index == 0 && no.pos == s->task->position && !me.IsDropoff(no.pos)) {
+			if (no.option_index == 0 && no.pos == s->task.position && !me.IsDropoff(no.pos)) {
 				hits[no.pos.x][no.pos.y] = BlockedCell::GHOST;
 			}
 		}
 	}
-
-	int navigation_order = 0;
-	std::mt19937_64& mersenne_twister = mt();
-
+	
 	while (!ships.empty()) {
 		// Take the one with the highest priority
 		Ship* s = strategy->GetShipWithHighestPriority(ships);
 		ships.erase(std::find(ships.begin(), ships.end(), s));
 
-		if (strategy->stage == Stage::SUICIDE) {
+		if (strategy->allow_dropoff_collision) {
 			for (Position dropoff : game->GetMyPlayer().dropoffs) {
 				hits[dropoff.x][dropoff.y] = BlockedCell::EMPTY;
 			}
@@ -396,7 +366,7 @@ void Navigation::Navigate(std::vector<Ship*> ships, std::vector<Command>& comman
 		});
 
 		NavigationOption& option = *options.begin();
-		hits[option.pos.x][option.pos.y] = (option.direction == Direction::STILL || option.pos == s->task->position) && !me.IsDropoff(s->task->position) ? BlockedCell::STATIC : BlockedCell::TRANSIENT;
+		hits[option.pos.x][option.pos.y] = (option.direction == Direction::STILL || option.pos == s->task.position) && !me.IsDropoff(s->task.position) ? BlockedCell::STATIC : BlockedCell::TRANSIENT;
 		navigationMap[option.pos.x][option.pos.y] -= option;
 		commands.push_back(MoveCommand(s->ship_id, option.direction));
 
@@ -405,7 +375,7 @@ void Navigation::Navigate(std::vector<Ship*> ships, std::vector<Command>& comman
 		if (shipInMovedLocation) {
 			if (shipInMovedLocation->player_id == me.id) {
 				// this ship should be the next to be processed to avoid possible self collisions
-				shipInMovedLocation->priority += 100000000000;
+				shipInMovedLocation->task.type = TaskType::OVERRIDE;
 			}
 			else {
 				collided[option.pos.x][option.pos.y] = true;
@@ -414,10 +384,10 @@ void Navigation::Navigate(std::vector<Ship*> ships, std::vector<Command>& comman
 
 #ifdef HALITE_LOCAL
 		out::LogShip(s->ship_id, {
-			{ "task_type", s->task ? static_cast<int>(s->task->type) : -1 },
-			{ "task_x", s->task->position.x },
-			{ "task_y", s->task->position.y },
-			{ "task_priority", std::to_string(s->priority) },
+			{ "task_type", s->task.type },
+			{ "task_x", s->task.position.x },
+			{ "task_y", s->task.position.y },
+			{ "task_priority", s->task.priority },
 			{ "navigation_order", std::to_string(navigation_order++) },
 		});
 #endif
