@@ -14,7 +14,7 @@ int main(int argc, char **argv) {
 
 	Game game;
 
-	game.Initialize("mlomb-bot-v44");
+	game.Initialize("mlomb-bot-v48");
 	{
 		// Load features
 

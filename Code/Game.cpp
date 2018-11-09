@@ -4,11 +4,9 @@
 #include "Strategy.hpp"
 
 namespace features {
-	double mine_avg_profit;
-	double mine_halite_ship_profit;
-	double mine_ratio_profit;
 	double time_cost_dist_target;
-	double time_cost_dist_dropoff_mining;
+	double time_cost_dist_dropoff;
+	double time_cost_mining;
 
 	double dropoff_ships_needed;
 	double dropoff_map_distance;
@@ -75,11 +73,9 @@ void Game::LoadFeatures(json& features)
 
 #define GET_FEATURE(name) if(features.find(#name) != features.end()) { features::name = features[#name]; }
 
-	GET_FEATURE(mine_avg_profit);
-	GET_FEATURE(mine_halite_ship_profit);
-	GET_FEATURE(mine_ratio_profit);
 	GET_FEATURE(time_cost_dist_target);
-	GET_FEATURE(time_cost_dist_dropoff_mining);
+	GET_FEATURE(time_cost_dist_dropoff);
+	GET_FEATURE(time_cost_mining);
 
 	GET_FEATURE(dropoff_ships_needed);
 	GET_FEATURE(dropoff_map_distance);

@@ -15,11 +15,9 @@
 class Strategy;
 
 namespace features {
-	extern double mine_avg_profit;
-	extern double mine_halite_ship_profit;
-	extern double mine_ratio_profit;
 	extern double time_cost_dist_target;
-	extern double time_cost_dist_dropoff_mining;
+	extern double time_cost_dist_dropoff;
+	extern double time_cost_mining;
 
 	extern double dropoff_ships_needed;
 	extern double dropoff_map_distance;

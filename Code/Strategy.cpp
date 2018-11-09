@@ -55,12 +55,13 @@ double Strategy::ShipTaskPriority(Ship* s, Task* t)
 	{
 		if (s->dropping)
 			return 0;
-		if (c->near_info_4.avgHalite / game->map->map_avg_halite < 1 && c->halite < 100) {
-			return 0;
-		}
+		//if (c->near_info_4.avgHalite / game->map->map_avg_halite < 0.8) {
+		//return 0;
+		//}
 
 		int halite_available = c->halite;
 		int halite_ship = s->halite;
+		int halite_mined = 0;
 
 		double best_priority = 0;
 
@@ -75,21 +76,17 @@ double Strategy::ShipTaskPriority(Ship* s, Task* t)
 			halite_ship += mined_profit;
 			halite_ship = std::min(halite_ship, hlt::constants::MAX_HALITE);
 			halite_available -= mined;
+			halite_mined += mined_profit;
 
 			double time_cost = 0;
 			double profit = 0;
 
-			//profit += (c->near_info_4.avgHalite / game->map->map_avg_halite) * features::mine_avg_profit;
-			//profit += halite_ship * features::mine_halite_ship_profit;
-			//profit += (c->near_info_4.num_ally_ships / (double)c->near_info_4.num_enemy_ships) * features::mine_ratio_profit;
-
-			//time_cost += dist * features::time_cost_dist_target + (closestDropoffDist[t->position.x][t->position.y] + mining_turns) * features::time_cost_dist_dropoff_mining;
-
-			time_cost = dist * 4 + me.DistanceToClosestDropoff(t->position) + mining_turns;
-			profit = halite_ship;
+			// 3 0.2 5
+			time_cost = dist * features::time_cost_dist_target + closestDropoffDist[t->position.x][t->position.y] * features::time_cost_dist_dropoff + mining_turns * features::time_cost_mining;
+			profit = (s->halite + halite_mined);// +((c->halite + c->near_info_4.avgHalite) / game->map->map_avg_halite) * 100;
 
 
-			double p = profit / time_cost;
+			double p = profit / (time_cost);
 
 			if (p > best_priority) {
 				best_priority = p;
@@ -202,6 +199,8 @@ void Strategy::GenerateTasks() {
 			task->position = { x, y };
 			task->max_ships = 0;
 
+			Ship* shipAt = game->GetShipAt(task->position);
+
 			if (me.IsDropoff(task->position)) {
 				task->type = TaskType::DROP;
 				task->policy = EnemyPolicy::DODGE;
@@ -214,7 +213,7 @@ void Strategy::GenerateTasks() {
 			}
 			else if(game->map->GetCell(task->position)->halite > 35) {
 				task->type = TaskType::MINE;
-				task->policy = EnemyPolicy::DODGE; // TODO ENGAGE
+				task->policy = EnemyPolicy::ENGAGE;
 				task->max_ships = 1;
 			}
 			else {

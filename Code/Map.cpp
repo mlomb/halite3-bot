@@ -49,6 +49,7 @@ void Map::Update()
 			Position p = { x, y };
 			Cell* c = GetCell(p);
 
+			c->near_info_2 = GetAreaInfo(p, 3);
 			c->near_info_3 = GetAreaInfo(p, 3);
 			c->near_info_4 = GetAreaInfo(p, hlt::constants::INSPIRATION_RADIUS);
 			c->inspiration = c->near_info_4.num_enemy_ships >= hlt::constants::INSPIRATION_SHIP_COUNT;
@@ -105,16 +106,28 @@ AreaInfo Map::GetAreaInfo(Position p, int max_manhattan_distance)
 
 	info.num_ally_ships = 0;
 	info.num_enemy_ships = 0;
+	info.num_ally_ships_not_dropping = 0;
 	for (auto& pp : game->players) {
 		for (auto& sp : pp.second.ships) {
-			if (sp.second->pos.ToroidalDistanceTo(p) <= max_manhattan_distance) {
-				if (pp.first == game->my_id)
+			int d = sp.second->pos.ToroidalDistanceTo(p);
+			if (d <= max_manhattan_distance) {
+				if (pp.first == game->my_id) {
 					info.num_ally_ships++;
-				else
+					if (!sp.second->dropping) {
+						info.ally_ships_not_dropping_dist.push_back(d);
+						info.num_ally_ships_not_dropping++;
+					}
+				}
+				else {
 					info.num_enemy_ships++;
+					info.enemy_ships_dist.push_back(d);
+				}
 			}
 		}
 	}
+
+	std::sort(info.ally_ships_not_dropping_dist.begin(), info.ally_ships_not_dropping_dist.end());
+	std::sort(info.enemy_ships_dist.begin(), info.enemy_ships_dist.end());
 
 	return info;
 }

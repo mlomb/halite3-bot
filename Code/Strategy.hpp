@@ -42,4 +42,5 @@ public:
 	std::vector<Ship*> shipsAvailable;
 	std::vector<Task*> tasks;
 	int closestDropoffDist[64][64];
+	
 };
