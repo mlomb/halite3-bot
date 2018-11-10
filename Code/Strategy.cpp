@@ -57,7 +57,7 @@ std::vector<Position> Strategy::BestDropoffSpots()
 	best_dropoff.x = -1;
 	best_dropoff.y = -1;
 
-	if (me.ships.size() >= features::dropoff_ships_needed * me.dropoffs.size() && game->turn <= 0.75 * hlt::constants::MAX_TURNS) {
+	if (me.ships.size() >= features::dropoff_ships_needed /* 14 */ * me.dropoffs.size() && game->turn <= 0.75 * hlt::constants::MAX_TURNS) {
 		// find a good spot for a dropoff
 		double bestRatio = -1;
 
@@ -92,14 +92,16 @@ std::vector<Position> Strategy::BestDropoffSpots()
 
 void Strategy::AssignTasks(std::vector<Command>& commands)
 {
+	reserved_halite = 0;
+	allow_dropoff_collision = false;
+
+	Player& me = game->GetMyPlayer();
+	if (me.ships.size() == 0) return;
+
 	out::Stopwatch s("Assign tasks");
 	out::Log("Assigning tasks...");
 
-	Player& me = game->GetMyPlayer();
 	std::vector<Position> dropoffs = BestDropoffSpots();
-
-	reserved_halite = 0;
-	allow_dropoff_collision = false;
 
 	for (auto& sp : me.ships) {
 		Ship* s = sp.second;
@@ -131,8 +133,10 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 
 	/* DROPOFFS */
 	for (Position dropoff_spot : dropoffs) {
-		// TODO Fix for multiple dropoff spots
 		Ship* dropoff_ship = me.ClosestShipAt(dropoff_spot);
+
+		// TODO Fix for multiple dropoff spots
+		if (!dropoff_ship || dropoff_ship->assigned) continue;
 
 		dropoff_ship->assigned = true;
 
@@ -239,9 +243,8 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 
 							//time_cost = dist_to_cell * features::time_cost_dist_target + dist_to_dropoff * features::time_cost_dist_dropoff + mining_turns * features::time_cost_mining;
 							//time_cost = dist_to_cell * 3 + dist_to_dropoff + mining_turns;
-							time_cost = dist_to_cell * 3 + dist_to_dropoff * 0.2 + mining_turns * 5;
-							//time_cost = dist_to_cell * 6.66 + dist_to_dropoff * 2.22 + mining_turns * 8.88;
-							time_cost = time_cost;
+							//time_cost = dist_to_cell * 3 + dist_to_dropoff * 0.2 + mining_turns * 5;
+							time_cost = dist_to_cell * 2.77 + dist_to_dropoff * 0.33 + mining_turns * 8.88;
 							profit = halite_ship;
 
 							double ratio = profit / time_cost;
@@ -269,6 +272,7 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 		}
 
 #ifdef HALITE_LOCAL
+		/*
 		json data_map;
 		for (int y = 0; y < game->map->height; y++) {
 			json data_row;
@@ -282,6 +286,7 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 			{ "position_x", s->pos.x },
 			{ "position_y", s->pos.y }
 			}, data_map);
+		*/
 #endif
 	}
 
@@ -317,6 +322,22 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 			mining_assigned[e.position.x][e.position.y] = true;
 		}
 	}
+
+	/* CHECK FOR UNASSIGNMENT */
+	for (auto& sp : me.ships) {
+		Ship* s = sp.second;
+		if (s->assigned) continue;
+
+		s->assigned = true;
+
+		Position closest_dropoff = me.ClosestDropoff(s->pos);
+		s->task.position = closest_dropoff;
+		s->task.type = TaskType::DROP;
+		s->task.policy = EnemyPolicy::DODGE;
+		s->task.priority = s->halite;
+
+		shipsToNavigate.push_back(s);
+	}
 }
  
 void Strategy::Execute(std::vector<Command>& commands)
@@ -332,7 +353,7 @@ void Strategy::Execute(std::vector<Command>& commands)
 	navigation->Navigate(shipsToNavigate, commands);
 	//------------------------------- SHIP SPAWNING
 
-	if (game->CanSpawnShip() && navigation->hits[me.shipyard_position.x][me.shipyard_position.y] == BlockedCell::EMPTY) {
+	if (!allow_dropoff_collision && game->CanSpawnShip() && navigation->hits[me.shipyard_position.x][me.shipyard_position.y] == BlockedCell::EMPTY) {
 		if (me.halite >= reserved_halite + hlt::constants::SHIP_COST) {
 			// We CAN spawn a ship
 			// We should?
@@ -350,8 +371,7 @@ Ship* Strategy::GetShipWithHighestPriority(std::vector<Ship*>& ships)
 	auto it = ships.begin();
 	if (it == ships.end())
 		return nullptr;
-	Ship* s = *it;
-	return s;
+	return *it;
 }
 
 void Strategy::FillClosestDropoffDist()

@@ -37,8 +37,7 @@ enum class TaskType {
 	MINE = 1,
 	ATTACK = 2,
 	DROP = 3,
-	TRANSFORM_INTO_DROPOFF = 4,
-	OVERRIDE = 5
+	TRANSFORM_INTO_DROPOFF = 4
 };
 
 enum class EnemyPolicy {
@@ -100,6 +99,7 @@ struct ShipTask {
 	TaskType type;
 	EnemyPolicy policy;
 	double priority;
+	bool override = false;
 };
 
 std::mt19937_64& mt();

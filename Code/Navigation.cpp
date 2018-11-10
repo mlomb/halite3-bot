@@ -126,7 +126,7 @@ std::vector<NavigationOption> Navigation::NavigationOptionsForShip(Ship* s)
 		target = s->pos;
 		break;
 	}
-	if (strategy->closestDropoffDist[s->pos.x][s->pos.y] <= 1) {
+	if (strategy->closestDropoffDist[s->pos.x][s->pos.y] <= 2) {
 		policy = EnemyPolicy::NONE;
 	}
 
@@ -137,9 +137,7 @@ std::vector<NavigationOption> Navigation::NavigationOptionsForShip(Ship* s)
 
 	std::vector<Direction> dirs = DIRECTIONS;
 	if (!me.IsDropoff(s->pos) || strategy->allow_dropoff_collision) {
-		//if (target.ToroidalDistanceTo(s->pos) <= 1 || strategy->stage == Stage::SUICIDE) { // if target and is not a dropoff
-			dirs.push_back(Direction::STILL);
-		//}
+		dirs.push_back(Direction::STILL);
 	}
 
 	int option_index = 0;
@@ -165,20 +163,6 @@ std::vector<NavigationOption> Navigation::NavigationOptionsForShip(Ship* s)
 		int dist_2nd_ally = moving_cell_info.ally_ships_not_dropping_dist.size() >= 2 ? moving_cell_info.ally_ships_not_dropping_dist[1] : INF;
 
 		if (hit_free) {
-			// Need to dodge?
-			/*
-			if (policy == EnemyPolicy::DODGE) {
-				// (the enemy ship to us)
-				int rh = moving_cell->enemy_reach_halite;
-				if (rh != -1) {
-					if (ShouldAttack(rh, info_3.num_enemy_ships, s->halite + c->halite, info_3.num_ally_ships) ||
-						(3 * s->halite > rh && s->halite >= 450)) {
-						optionCost = INF;
-					}
-				}
-			}
-
-			*/
 			possibleOption = true;
 			if (moving_cell->enemy_reach_halite != -1) {
 				if (policy == EnemyPolicy::DODGE) {
@@ -192,22 +176,11 @@ std::vector<NavigationOption> Navigation::NavigationOptionsForShip(Ship* s)
 					if (dist_2nd_enemy <= dist_2nd_ally) {
 						optionCost += INF + (hlt::constants::MAX_HALITE - moving_cell->enemy_reach_halite);
 					}
-					if (moving_cell_info.num_enemy_ships == moving_cell_info.num_ally_ships_not_dropping) {
-
-					}
 				}
 			}
 		}
 		else {
 			if (is_other_enemy && policy == EnemyPolicy::ENGAGE) {
-				//if () { // if the target is to collide with that ship ( cost = 1 )
-				//
-				//}
-
-				/*
-				if (ShouldAttack(s->halite, info_3.num_ally_ships, other_ship->halite + c->halite, info_3.num_enemy_ships)) {
-				}
-				*/
 				if (moving_cell_info.num_ally_ships_not_dropping > moving_cell_info.num_enemy_ships + 1 &&
 					dist_2nd_enemy >= dist_2nd_ally &&
 					s->halite < 750 &&
@@ -215,10 +188,6 @@ std::vector<NavigationOption> Navigation::NavigationOptionsForShip(Ship* s)
 					optionCost = 1;
 					possibleOption = true;
 				}
-				//if (moving_cell_info.num_ally_ships_not_dropping > moving_cell_info.num_enemy_ships + 1) {
-				//	optionCost = 1;
-				//	possibleOption = true;
-				//}
 			}
 		}
 
@@ -229,7 +198,7 @@ std::vector<NavigationOption> Navigation::NavigationOptionsForShip(Ship* s)
 				optionCost / (double)(option_index + 1),
 				pp,
 				d,
-				});
+			});
 		}
 	}
 
@@ -241,7 +210,7 @@ std::vector<NavigationOption> Navigation::NavigationOptionsForShip(Ship* s)
 			0,
 			s->pos,
 			Direction::STILL,
-			});
+		});
 	}
 
 	return options;
@@ -298,17 +267,17 @@ void Navigation::Navigate(std::vector<Ship*> ships, std::vector<Command>& comman
 		if (ships_near_dropoff.size() > 1) {
 			Ship* s = strategy->GetShipWithHighestPriority(ships_near_dropoff);
 			if (s)
-				s->task.type = TaskType::OVERRIDE;
+				s->task.override = true;
 		}
 		else if (blocked == DIRECTIONS.size()) {
 			Ship* s = me.ShipAt(dropoff);
 			if (s)
-				s->task.type = TaskType::OVERRIDE;
+				s->task.override = true;
 		}
 	}
 
 	// sort, just why not
-	strategy->GetShipWithHighestPriority(ships);
+	Player::SortByTaskPriority(ships);
 
 	struct NavigationCell {
 		double costRank = 0;
@@ -375,7 +344,7 @@ void Navigation::Navigate(std::vector<Ship*> ships, std::vector<Command>& comman
 		if (shipInMovedLocation) {
 			if (shipInMovedLocation->player_id == me.id) {
 				// this ship should be the next to be processed to avoid possible self collisions
-				shipInMovedLocation->task.type = TaskType::OVERRIDE;
+				shipInMovedLocation->task.override = true;
 			}
 			else {
 				collided[option.pos.x][option.pos.y] = true;

@@ -138,7 +138,13 @@ void Game::Turn()
 
 	{
 		out::Stopwatch s("Strategy Execute");
-		strategy->Execute(commands);
+		try {
+			strategy->Execute(commands);
+		}
+		catch (std::exception& e)
+		{
+			out::Log("Exception catched during Strategy Execution: " + std::string(e.what()));
+		}
 	}
 
 	// End Turn

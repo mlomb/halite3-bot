@@ -117,9 +117,13 @@ Ship* Player::ClosestShipAt(const Position& pos)
 void Player::SortByTaskPriority(std::vector<Ship*>& ships)
 {
 	std::sort(ships.begin(), ships.end(), [](const Ship* a, const Ship* b) {
-		if (a->task.type == b->task.type)
-			return a->task.priority > b->task.priority;
+		if (a->task.override == b->task.override) {
+			if (a->task.type == b->task.type)
+				return a->task.priority > b->task.priority;
+			else
+				return static_cast<int>(a->task.type) > static_cast<int>(b->task.priority);
+		}
 		else
-			return static_cast<int>(a->task.type) > static_cast<int>(b->task.priority);
+			return a->task.override;
 	});
 }
