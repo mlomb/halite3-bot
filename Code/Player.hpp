@@ -15,9 +15,8 @@ struct Ship {
 	int halite;
 	bool dead;
 
-	ShipTask task;
-
 	// STRATEGY-SPECIFIC
+	ShipTask task;
 	bool assigned = false;
 	bool dropping = false;
 };
@@ -46,4 +45,5 @@ public:
 	std::vector<Position> dropoffs;
 
 	static void SortByTaskPriority(std::vector<Ship*>& ships);
+	static Ship* GetShipWithHighestPriority(std::vector<Ship*>& ships);
 };

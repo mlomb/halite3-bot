@@ -51,7 +51,7 @@ void Navigation::PathMinCostFromMap(Position start, EnemyPolicy policy, OptimalP
 			*/
 
 			OptimalPathCell new_state;
-			new_state.haliteCost = r.haliteCost + floor(0.1 * (double)game_map->GetCell(p)->halite);
+			new_state.haliteCost = r.haliteCost + floor(0.1 * (double)game_map->GetCell(p).halite);
 			new_state.turns = r.turns + 1;
 			new_state.expanded = false;
 			new_state.added = true;
@@ -148,13 +148,13 @@ std::vector<NavigationOption> Navigation::NavigationOptionsForShip(Ship* s)
 		if (collided[pp.x][pp.y])
 			continue;
 
-		Cell* c = game_map->GetCell(target);
-		Cell* moving_cell = game_map->GetCell(pp);
+		Cell& c = game_map->GetCell(target);
+		Cell& moving_cell = game_map->GetCell(pp);
 		bool hit_free = IsHitFree(pp);
-		Ship* other_ship = moving_cell->ship_on_cell;
+		Ship* other_ship = moving_cell.ship_on_cell;
 		bool is_other_enemy = other_ship && other_ship->player_id != me.id;
-		AreaInfo& info_3 = c->near_info_3;
-		AreaInfo& moving_cell_info = moving_cell->near_info_2;
+		AreaInfo& info_3 = c.near_info[3];
+		AreaInfo& moving_cell_info = moving_cell.near_info[3];
 
 		double optionCost = map.cells[pp.x][pp.y].ratio();
 		bool possibleOption = false;
@@ -164,17 +164,17 @@ std::vector<NavigationOption> Navigation::NavigationOptionsForShip(Ship* s)
 
 		if (hit_free) {
 			possibleOption = true;
-			if (moving_cell->enemy_reach_halite != -1) {
+			if (moving_cell.enemy_reach_halite != -1) {
 				if (policy == EnemyPolicy::DODGE) {
-					optionCost += INF + (hlt::constants::MAX_HALITE - moving_cell->enemy_reach_halite);
+					optionCost += INF + (constants::MAX_HALITE - moving_cell.enemy_reach_halite);
 				}
 				else if (policy == EnemyPolicy::ENGAGE) {
 					// si la nave mas cercana enemiga esta mas cerca que la nave mas cercana aliada don't go.
 					if (moving_cell_info.num_enemy_ships > moving_cell_info.num_ally_ships_not_dropping) {
-						optionCost += INF + (hlt::constants::MAX_HALITE - moving_cell->enemy_reach_halite);
+						optionCost += INF + (constants::MAX_HALITE - moving_cell.enemy_reach_halite);
 					}
 					if (dist_2nd_enemy <= dist_2nd_ally) {
-						optionCost += INF + (hlt::constants::MAX_HALITE - moving_cell->enemy_reach_halite);
+						optionCost += INF + (constants::MAX_HALITE - moving_cell.enemy_reach_halite);
 					}
 				}
 			}
@@ -209,7 +209,7 @@ std::vector<NavigationOption> Navigation::NavigationOptionsForShip(Ship* s)
 			0,
 			0,
 			s->pos,
-			Direction::STILL,
+			Direction::STILL
 		});
 	}
 
@@ -232,7 +232,7 @@ void Navigation::Navigate(std::vector<Ship*> ships, std::vector<Command>& comman
 	while (it != ships.end()) {
 		Ship* s = *it;
 		
-		if (s->halite < floor(game->map->GetCell(s->pos)->halite * 0.1)) {
+		if (s->halite < floor(game->map->GetCell(s->pos).halite * (1.0 / constants::MOVE_COST_RATIO))) {
 			hits[s->pos.x][s->pos.y] = BlockedCell::TRANSIENT;
 			commands.push_back(MoveCommand(s->ship_id, Direction::STILL));
 			it = ships.erase(it);
@@ -265,7 +265,7 @@ void Navigation::Navigate(std::vector<Ship*> ships, std::vector<Command>& comman
 		}
 
 		if (ships_near_dropoff.size() > 1) {
-			Ship* s = strategy->GetShipWithHighestPriority(ships_near_dropoff);
+			Ship* s = Player::GetShipWithHighestPriority(ships_near_dropoff);
 			if (s)
 				s->task.override = true;
 		}
@@ -304,7 +304,7 @@ void Navigation::Navigate(std::vector<Ship*> ships, std::vector<Command>& comman
 	
 	while (!ships.empty()) {
 		// Take the one with the highest priority
-		Ship* s = strategy->GetShipWithHighestPriority(ships);
+		Ship* s = Player::GetShipWithHighestPriority(ships);
 		ships.erase(std::find(ships.begin(), ships.end(), s));
 
 		if (strategy->allow_dropoff_collision) {
@@ -316,7 +316,7 @@ void Navigation::Navigate(std::vector<Ship*> ships, std::vector<Command>& comman
 		// ----- Navigate
 		// Generate the new options given the modified map
 		auto options = NavigationOptionsForShip(s);
-		int salt = game->turn + game->map->halite_remaining;
+		int salt = constants::GAME_SEED + game->turn;
 
 		std::sort(options.begin(), options.end(), [s, &salt, &navigationMap, &mersenne_twister, &random_01](const NavigationOption& a, const NavigationOption& b) {
 			if (fabs(a.optionCost - b.optionCost) <= 700) { // almost equal

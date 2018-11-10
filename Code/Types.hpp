@@ -5,6 +5,13 @@
 #include <random>
 #include <stdlib.h>
 #include <algorithm>
+#include <iostream>
+#include <set>
+#include <string>
+#include <unordered_map>
+#include <chrono>
+
+#include "Constants.hpp"
 
 class Ship;
 
@@ -20,6 +27,13 @@ enum class Direction : char {
 	SOUTH = 's',
 	WEST = 'w',
 	STILL = 'o',
+};
+
+const std::vector<Direction> DIRECTIONS = {
+	Direction::EAST,
+	Direction::WEST,
+	Direction::NORTH,
+	Direction::SOUTH
 };
 
 enum Stage {
@@ -44,13 +58,6 @@ enum class EnemyPolicy {
 	NONE = 0,
 	DODGE = 1,
 	ENGAGE = 2
-};
-
-const std::vector<Direction> DIRECTIONS = {
-	Direction::EAST,
-	Direction::WEST,
-	Direction::NORTH,
-	Direction::SOUTH
 };
 
 struct Position {
@@ -90,8 +97,19 @@ struct Position {
 	inline int DistanceTo(const Position& other) const {
 		return std::abs(x - other.x) + std::abs(y - other.y);
 	}
-	int ToroidalDistanceTo(const Position& other) const;
-	void Wrap();
+	inline int ToroidalDistanceTo(const Position& other) const {
+		int dx = std::abs(x - other.x);
+		int dy = std::abs(y - other.y);
+
+		int toroidal_dx = std::min(dx, constants::MAP_WIDTH - dx);
+		int toroidal_dy = std::min(dy, constants::MAP_HEIGHT - dy);
+
+		return toroidal_dx + toroidal_dy;
+	}
+	inline void Wrap() {
+		x = (x + constants::MAP_WIDTH) % constants::MAP_WIDTH;
+		y = (y + constants::MAP_HEIGHT) % constants::MAP_HEIGHT;
+	}
 };
 
 struct ShipTask {

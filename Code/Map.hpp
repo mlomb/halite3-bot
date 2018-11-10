@@ -4,16 +4,19 @@
 
 #include "Types.hpp"
 
+#define MAX_CELL_NEAR_AREA_INFO 5 // inclusive
+
 class Game;
 class Ship;
 
 struct AreaInfo {
 	int halite;
+	int cells;
 	double avgHalite;
+
 	int num_ally_ships;
 	int num_enemy_ships;
 	int num_ally_ships_not_dropping;
-
 	std::vector<int> enemy_ships_dist;
 	std::vector<int> ally_ships_not_dropping_dist;
 };
@@ -22,9 +25,7 @@ struct Cell {
 	Position pos;
 	int halite;
 	bool inspiration;
-	AreaInfo near_info_2;
-	AreaInfo near_info_3;
-	AreaInfo near_info_4;
+	AreaInfo near_info[MAX_CELL_NEAR_AREA_INFO + 1]; // 0 to MAX_CELL_AREA_INFO
 	Ship* ship_on_cell;
 	int enemy_reach_halite; // min
 	PlayerID dropoff_owned;
@@ -36,8 +37,10 @@ public:
 
 	void Initialize();
 	void Update();
+	void Process();
+	void CalculateNearInfo(Cell& c);
 
-	inline Cell* GetCell(const Position& pos) {
+	inline Cell& GetCell(const Position& pos) {
 #ifdef HALITE_LOCAL
 		/*
 		if (pos.x < 0 || pos.y < 0 || pos.x >= width || pos.y >= height) {
@@ -45,13 +48,12 @@ public:
 		}
 		*/
 #endif
-		return cells[pos.y][pos.x];
+		return cells[pos.x][pos.y];
 	};
-	AreaInfo GetAreaInfo(Position p, int max_manhattan_distance);
 
 	Game* game;
 	int width, height;
 	int halite_remaining;
 	double map_avg_halite;
-	std::vector<std::vector<Cell*>> cells;
+	Cell cells[64][64];
 };

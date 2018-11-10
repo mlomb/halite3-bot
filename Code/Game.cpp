@@ -3,23 +3,6 @@
 #include "Command.hpp"
 #include "Strategy.hpp"
 
-namespace features {
-	double time_cost_dist_target;
-	double time_cost_dist_dropoff;
-	double time_cost_mining;
-
-	double dropoff_ships_needed;
-	double dropoff_map_distance;
-	double dropoff_avg_threshold;
-
-	double attack_mult;
-	double enemy_halite_worth;
-	double min_ally_ships_near;
-	double ally_enemy_ratio;
-	double ally_halite_less;
-	double halite_ratio_less;
-}
-
 Game* Game::s_Instance = nullptr;
 
 Game::Game()
@@ -33,9 +16,8 @@ void Game::Initialize(const std::string& bot_name)
 {
 	std::ios_base::sync_with_stdio(false);
 
-	hlt::constants::populate_constants(in::GetString());
-	std::stringstream input(in::GetString());
-	input >> num_players >> my_id;
+	LoadConstants(json::parse(in::GetString()));
+	in::GetSStream() >> num_players >> my_id;
 
 	out::Open(my_id);
 
@@ -58,7 +40,29 @@ void Game::Initialize(const std::string& bot_name)
 	out::Log("Num players: " + std::to_string(num_players));
 	out::Log("Map: " + std::to_string(map->width) + "x" + std::to_string(map->height));
 	out::Log("Total Halite: " + std::to_string(total_halite));
+	out::Log("Seed: " + std::to_string(constants::GAME_SEED));
 	out::Log("----------------------------");
+}
+
+void Game::LoadConstants(json& constants)
+{
+	out::Log("Constants from the engine:");
+
+#define GET_CONSTANT(name, var_name) if(constants.find(#name) != constants.end()) { constants::var_name = constants[#name]; out::Log(std::string("  ") + #var_name + ": " + std::to_string(constants::var_name)); }
+
+	GET_CONSTANT(NEW_ENTITY_ENERGY_COST, SHIP_COST);
+	GET_CONSTANT(DROPOFF_COST, DROPOFF_COST);
+	GET_CONSTANT(MAX_ENERGY, MAX_HALITE);
+	GET_CONSTANT(MAX_TURNS, MAX_TURNS);
+	GET_CONSTANT(EXTRACT_RATIO, EXTRACT_RATIO);
+	GET_CONSTANT(MOVE_COST_RATIO, MOVE_COST_RATIO);
+	GET_CONSTANT(INSPIRATION_ENABLED, INSPIRATION_ENABLED);
+	GET_CONSTANT(INSPIRATION_RADIUS, INSPIRATION_RADIUS);
+	GET_CONSTANT(INSPIRATION_SHIP_COUNT, INSPIRATION_SHIP_COUNT);
+	GET_CONSTANT(INSPIRED_EXTRACT_RATIO, INSPIRED_EXTRACT_RATIO);
+	GET_CONSTANT(INSPIRED_BONUS_MULTIPLIER, INSPIRED_BONUS_MULTIPLIER);
+	GET_CONSTANT(INSPIRED_MOVE_COST_RATIO, INSPIRED_MOVE_COST_RATIO);
+	GET_CONSTANT(game_seed, GAME_SEED);
 }
 
 void Game::LoadFeatures(json& features)
@@ -109,7 +113,7 @@ void Game::Play()
 void Game::Update()
 {
 	in::GetSStream() >> turn;
-	remaining_turns = hlt::constants::MAX_TURNS - turn;
+	remaining_turns = constants::MAX_TURNS - turn;
 	out::Log("=============== TURN " + std::to_string(turn) + " ================");
 
 	for (int i = 0; i < num_players; i++) {
@@ -128,8 +132,7 @@ void Game::Update()
 	out::Log("Halite: " + std::to_string(me.halite));
 	out::Log("Ships: " + std::to_string(me.ships.size()));
 	out::Log("AvgHalite: " + std::to_string(map->halite_remaining / (double)(map->width * map->height)));
-	out::Log("-----");
-
+	out::Log("----------------------------");
 }
 
 void Game::Turn()
@@ -165,37 +168,30 @@ Player& Game::GetMyPlayer()
 
 bool Game::IsDropoff(const Position pos)
 {
-	for (auto& pp : players)
-		if (pp.second.IsDropoff(pos))
-			return true;
-	return false;
+	return map->GetCell(pos).dropoff_owned != -1;
 }
 
 Ship* Game::GetShipAt(const Position pos)
 {
-	for (auto& pp : players)
-		for (auto& ss : pp.second.ships)
-			if (ss.second->pos == pos)
-				return ss.second;
-	return nullptr;
+	return map->GetCell(pos).ship_on_cell;
 }
 
-bool Game::CanSpawnShip()
+bool Game::CanSpawnShip(int reserved)
 {
-	return GetMyPlayer().halite >= hlt::constants::SHIP_COST;
+	return GetMyPlayer().halite >= reserved + constants::SHIP_COST;
 }
 
 bool Game::TransformIntoDropoff(Ship* s, std::vector<Command>& commands)
 {
 	auto& me = GetMyPlayer();
 
-	double budget = s->halite + map->GetCell(s->pos)->halite + me.halite;
-	if (budget >= hlt::constants::DROPOFF_COST) {
-		me.halite = budget - hlt::constants::DROPOFF_COST;
+	double budget = s->halite + map->GetCell(s->pos).halite + me.halite;
+	if (budget >= constants::DROPOFF_COST) {
+		me.halite = budget - constants::DROPOFF_COST;
 		commands.push_back(TransformShipIntoDropoffCommand(s->ship_id));
 		me.dropoffs.push_back(s->pos);
-		map->GetCell(s->pos)->dropoff_owned = me.id;
-		map->GetCell(s->pos)->halite = 0;
+		map->GetCell(s->pos).dropoff_owned = me.id;
+		map->GetCell(s->pos).halite = 0;
 		return true;
 	}
 	return false;

@@ -11,23 +11,22 @@ Map::Map(Game* game) : game(game)
 void Map::Initialize()
 {
 	in::GetSStream() >> width >> height;
+
+	constants::MAP_WIDTH = width;
+	constants::MAP_HEIGHT = height;
 	
-	cells.resize(height);
 	for (int y = 0; y < height; y++) {
 		auto in = in::GetSStream();
-
-		cells[y].resize(width);
 		for (int x = 0; x < width; x++) {
 			int halite;
 			in >> halite;
 
-			Cell* c = new Cell();
-			c->pos = { x, y };
-			c->halite = halite;
-
-			cells[y][x] = c;
+			cells[x][y].pos = { x,y };
+			cells[x][y].halite = halite;
 		}
 	}
+
+	Process();
 }
 
 void Map::Update()
@@ -39,95 +38,109 @@ void Map::Update()
 		Position pos;
 		int halite;
 		in::GetSStream() >> pos.x >> pos.y >> halite;
-		GetCell(pos)->halite = halite;
+		GetCell(pos).halite = halite;
 	}
 
-	// calc inspiration & near avg
+	Process();
+}
+
+void Map::Process()
+{
 	halite_remaining = 0;
-	for (int y = 0; y < height; y++) {
-		for (int x = 0; x < width; x++) {
-			Position p = { x, y };
-			Cell* c = GetCell(p);
+	for (int x = 0; x < width; x++) {
+		for (int y = 0; y < height; y++) {
+			Cell& c = GetCell({ x, y });
 
-			c->near_info_2 = GetAreaInfo(p, 3);
-			c->near_info_3 = GetAreaInfo(p, 3);
-			c->near_info_4 = GetAreaInfo(p, hlt::constants::INSPIRATION_RADIUS);
-			c->inspiration = c->near_info_4.num_enemy_ships >= hlt::constants::INSPIRATION_SHIP_COUNT;
-			c->ship_on_cell = nullptr;
-			c->enemy_reach_halite = -1;
-			c->dropoff_owned = -1;
+			c.ship_on_cell = nullptr;
+			c.enemy_reach_halite = -1;
+			c.dropoff_owned = -1;
 
-			halite_remaining += c->halite;
+			halite_remaining += c.halite;
 		}
 	}
 
 	map_avg_halite = halite_remaining / (double)(width * height);
 
-	std::vector<Direction> dirs = DIRECTIONS;
-	dirs.push_back(Direction::STILL);
-
-	// fill ship_on_cell
+	// fill ship_on_cell and dropoff_owned
 	for (auto& pp : game->players) {
 		for (auto& ss : pp.second.ships) {
-			GetCell(ss.second->pos)->ship_on_cell = ss.second;
-
-			if (pp.first != game->my_id) {
-				for (Direction d : dirs) {
-					Position p = ss.second->pos.DirectionalOffset(d);
-					int& rh = GetCell(p)->enemy_reach_halite;
-					if (rh == -1 || ss.second->halite < rh) {
-						rh = ss.second->halite;
-					}
-				}
-			}
+			GetCell(ss.second->pos).ship_on_cell = ss.second;
 		}
-		for (Position& d : pp.second.dropoffs) {
-			GetCell(d)->dropoff_owned = pp.first;
+		for (Position d : pp.second.dropoffs) {
+			GetCell(d).dropoff_owned = pp.first;
 		}
 	}
+
+	// near info
+	for (int x = 0; x < width; x++) {
+		for (int y = 0; y < height; y++) {
+			Cell& c = GetCell({ x, y });
+
+			CalculateNearInfo(c);
+			c.inspiration = c.near_info[constants::INSPIRATION_RADIUS].num_enemy_ships >= constants::INSPIRATION_SHIP_COUNT;
+		}
+	}
+
 }
 
-AreaInfo Map::GetAreaInfo(Position p, int max_manhattan_distance)
+void Map::CalculateNearInfo(Cell& c)
 {
-	AreaInfo info;
+	PlayerID my_id = Game::Get()->my_id;
 
-	int affectedCells = 0;
-	info.halite = 0;
-	for (int xx = -max_manhattan_distance; xx <= max_manhattan_distance; xx++) {
-		for (int yy = -max_manhattan_distance; yy <= max_manhattan_distance; yy++) {
-			Position pos = { p.x + xx, p.y + yy };
-			if (pos.ToroidalDistanceTo(p) <= max_manhattan_distance) {
-				affectedCells++;
-				info.halite += GetCell(pos)->halite;
-			}
-		}
+	for (int k = 0; k <= MAX_CELL_NEAR_AREA_INFO; k++) {
+		AreaInfo& info = c.near_info[k];
+		info.halite = 0;
+		info.cells = 0;
+		info.avgHalite = 0;
+		info.num_ally_ships = 0;
+		info.num_enemy_ships = 0;
+		info.num_ally_ships_not_dropping = 0;
+		info.enemy_ships_dist.clear();
+		info.ally_ships_not_dropping_dist.clear();
 	}
-	info.avgHalite = (double)info.halite / (double)affectedCells;
 
-	info.num_ally_ships = 0;
-	info.num_enemy_ships = 0;
-	info.num_ally_ships_not_dropping = 0;
-	for (auto& pp : game->players) {
-		for (auto& sp : pp.second.ships) {
-			int d = sp.second->pos.ToroidalDistanceTo(p);
-			if (d <= max_manhattan_distance) {
-				if (pp.first == game->my_id) {
-					info.num_ally_ships++;
-					if (!sp.second->dropping) {
-						info.ally_ships_not_dropping_dist.push_back(d);
-						info.num_ally_ships_not_dropping++;
+	for (int xx = -MAX_CELL_NEAR_AREA_INFO; xx <= MAX_CELL_NEAR_AREA_INFO; xx++) {
+		for (int yy = -MAX_CELL_NEAR_AREA_INFO; yy <= MAX_CELL_NEAR_AREA_INFO; yy++) {
+			Position pos = { c.pos.x + xx, c.pos.y + yy };
+			int d = pos.ToroidalDistanceTo(c.pos);
+			d = std::min(d, MAX_CELL_NEAR_AREA_INFO);
+
+			Cell& it_cell = GetCell(pos);
+
+			for (int k = d; k <= MAX_CELL_NEAR_AREA_INFO; k++) {
+				AreaInfo& info = c.near_info[k];
+
+				info.cells++;
+				info.halite += GetCell(pos).halite;
+
+
+				if (it_cell.ship_on_cell) {
+					if (it_cell.ship_on_cell->player_id == my_id) {
+						info.num_ally_ships++;
+						if (!it_cell.ship_on_cell->dropping) {
+							info.num_ally_ships_not_dropping++;
+							info.ally_ships_not_dropping_dist.push_back(d);
+						}
+					}
+					else {
+						info.num_enemy_ships++;
+						info.enemy_ships_dist.push_back(d);
+
+						if (d <= 1) {
+							if (c.enemy_reach_halite == -1 || it_cell.ship_on_cell->halite < c.enemy_reach_halite) {
+								c.enemy_reach_halite = it_cell.ship_on_cell->halite;
+							}
+						}
 					}
 				}
-				else {
-					info.num_enemy_ships++;
-					info.enemy_ships_dist.push_back(d);
-				}
 			}
 		}
 	}
 
-	std::sort(info.ally_ships_not_dropping_dist.begin(), info.ally_ships_not_dropping_dist.end());
-	std::sort(info.enemy_ships_dist.begin(), info.enemy_ships_dist.end());
-
-	return info;
+	for (int k = 0; k <= MAX_CELL_NEAR_AREA_INFO; k++) {
+		AreaInfo& info = c.near_info[k];
+		info.avgHalite = info.halite / (double)info.cells;
+		std::sort(info.ally_ships_not_dropping_dist.begin(), info.ally_ships_not_dropping_dist.end());
+		std::sort(info.enemy_ships_dist.begin(), info.enemy_ships_dist.end());
+	}
 }

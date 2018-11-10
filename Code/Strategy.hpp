@@ -21,7 +21,6 @@ public:
 	std::vector<Position> BestDropoffSpots();
 	bool ShouldSpawnShip();
 
-	Ship* GetShipWithHighestPriority(std::vector<Ship*>& ships);
 	void FillClosestDropoffDist();
 
 	Game* game;

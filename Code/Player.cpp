@@ -36,7 +36,7 @@ void Player::Update(int num_ships, int num_dropoffs, int halite, Game* game)
 		s->halite = halite;
 		s->dead = false;
 
-		game->map->GetCell(pos)->ship_on_cell = s;
+		game->map->GetCell(pos).ship_on_cell = s;
 
 		this->carrying_halite += s->halite;
 	}
@@ -69,7 +69,7 @@ int Player::TotalHalite()
 
 bool Player::IsDropoff(const Position pos)
 {
-	return Game::Get()->map->GetCell(pos)->dropoff_owned == id;
+	return Game::Get()->map->GetCell(pos).dropoff_owned == id;
 }
 
 Position Player::ClosestDropoff(const Position pos)
@@ -95,19 +95,19 @@ int Player::DistanceToClosestDropoff(const Position pos)
 
 Ship* Player::ShipAt(const Position& pos)
 {
-	return Game::Get()->map->GetCell(pos)->ship_on_cell;
+	return Game::Get()->map->GetCell(pos).ship_on_cell;
 }
 
 Ship* Player::ClosestShipAt(const Position& pos)
 {
 	Ship* closest_ship = nullptr;
-	int dist = INF;
+	int distance = INF;
 
 	for (auto& sp : ships) {
-		int d = sp.second->pos.ToroidalDistanceTo(pos);
-		if (d < dist) {
+		int dist = sp.second->pos.ToroidalDistanceTo(pos);
+		if (dist < distance) {
 			closest_ship = sp.second;
-			dist = d;
+			distance = dist;
 		}
 	}
 
@@ -126,4 +126,14 @@ void Player::SortByTaskPriority(std::vector<Ship*>& ships)
 		else
 			return a->task.override;
 	});
+}
+
+Ship* Player::GetShipWithHighestPriority(std::vector<Ship*>& ships)
+{
+	SortByTaskPriority(ships);
+
+	auto it = ships.begin();
+	if (it == ships.end())
+		return nullptr;
+	return *it;
 }
