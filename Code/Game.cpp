@@ -16,7 +16,8 @@ void Game::Initialize(const std::string& bot_name)
 {
 	std::ios_base::sync_with_stdio(false);
 
-	LoadConstants(json::parse(in::GetString()));
+	json constants_json = json::parse(in::GetString());
+	LoadConstants(constants_json);
 	in::GetSStream() >> num_players >> my_id;
 
 	out::Open(my_id);
