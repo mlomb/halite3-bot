@@ -116,6 +116,7 @@ void Game::Update()
 	in::GetSStream() >> turn;
 	remaining_turns = constants::MAX_TURNS - turn;
 	out::Log("=============== TURN " + std::to_string(turn) + " ================");
+	turn_started = std::chrono::system_clock::now();
 
 	for (int i = 0; i < num_players; i++) {
 		PlayerID player_id;
@@ -175,6 +176,14 @@ bool Game::IsDropoff(const Position pos)
 Ship* Game::GetShipAt(const Position pos)
 {
 	return map->GetCell(pos).ship_on_cell;
+}
+
+long long Game::MsTillTimeout()
+{
+	auto end = std::chrono::system_clock::now();
+	std::chrono::duration<double> elapsed = end - turn_started;
+	long long ms = std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count();
+	return std::max((2000 - 5 /* safe margin */) - ms, (long long)0);
 }
 
 bool Game::CanSpawnShip(int reserved)

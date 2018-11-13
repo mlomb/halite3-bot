@@ -12,22 +12,21 @@
 class Strategy;
 
 enum BlockedCell {
-	EMPTY,
-	GHOST,
-	TRANSIENT,
-	STATIC
+	EMPTY = 0,
+	GHOST = 1,
+	TRANSIENT = 2,
+	STATIC = 3
 };
 
 struct OptimalPathCell {
 	int haliteCost = INF;
 	int turns = INF;
-	int ships_on_path = 0;
 	int tor_dist = 0;
 	bool expanded = false;
 	bool added = false;
 
 	double ratio() const {
-		return (turns * 10000) + (haliteCost * 10) + (100.0 - (double)tor_dist) / 100.0;
+		return (turns * 10000) + (haliteCost * 10) + (double)tor_dist / 100.0;
 	}
 
 	bool operator<(const OptimalPathCell& rhs) const
@@ -42,20 +41,21 @@ struct OptimalPathMap {
 struct NavigationOption {
 	int option_index;
 	double optionCost;
-	double optionCostByRank;
 	Position pos;
 	Direction direction;
+	Ship* ship;
 };
 
 class Navigation {
 public:
 	Navigation(Strategy* strategy);
 
-	void PathMinCostFromMap(Position start, EnemyPolicy policy, OptimalPathMap& map);
+	void MinCostBFS(Position start, OptimalPathMap& map);
+
+	std::vector<NavigationOption> NavigationOptionsForShip(Ship* s);
 
 	void Clear();
 	bool IsHitFree(const Position pos);
-	std::vector<NavigationOption> NavigationOptionsForShip(Ship* s);
 	void Navigate(std::vector<Ship*> ships, std::vector<Command>& commands);
 
 	Strategy* strategy;

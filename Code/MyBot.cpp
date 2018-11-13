@@ -3,7 +3,9 @@
 #include "Game.hpp"
 
 #ifdef HALITE_LOCAL
+#ifdef _WIN32
 #include <Windows.h>
+#endif
 #endif
 
 
@@ -14,7 +16,7 @@ int main(int argc, char **argv) {
 
 	Game game;
 
-	game.Initialize("mlomb-bot-v52");
+	game.Initialize("mlomb-bot-v55");
 	{
 		// Load features
 

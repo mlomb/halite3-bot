@@ -121,7 +121,7 @@ void Player::SortByTaskPriority(std::vector<Ship*>& ships)
 			if (a->task.type == b->task.type)
 				return a->task.priority > b->task.priority;
 			else
-				return static_cast<int>(a->task.type) > static_cast<int>(b->task.priority);
+				return static_cast<int>(a->task.type) > static_cast<int>(b->task.type);
 		}
 		else
 			return a->task.override;

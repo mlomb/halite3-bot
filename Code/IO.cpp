@@ -25,6 +25,8 @@ namespace out {
 	std::vector<std::string> Stopwatch::messages;
 	std::map<std::string, StopwatchSummaryEntry> Stopwatch::summary;
 
+	const bool FLUORINE_ENABLED = false;
+
 	static std::ofstream log_file;
 	static std::vector<std::string> log_buffer;
 	static bool has_opened = false;
@@ -80,6 +82,7 @@ namespace out {
 	
 	void LogFluorineDebug(const json& meta, const json& data)
 	{
+		if (!FLUORINE_ENABLED) return;
 #ifdef HALITE_LOCAL
 		Game* g = Game::Get();
 		json j = {

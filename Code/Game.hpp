@@ -24,10 +24,12 @@ public:
 	Player& GetMyPlayer();
 	bool IsDropoff(const Position pos); // any player
 	Ship* GetShipAt(const Position pos); // any player
+	long long MsTillTimeout(); // ms
 
 	bool CanSpawnShip(int reserved);
 	bool TransformIntoDropoff(Ship* s, std::vector<Command>& commands);
 
+	std::chrono::time_point<std::chrono::system_clock> turn_started;
 	int remaining_turns;
 	int turn;
 	int num_players;

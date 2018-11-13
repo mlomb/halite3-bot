@@ -15,26 +15,6 @@ bool Strategy::ShouldSpawnShip()
 {
 	auto& me = game->GetMyPlayer();
 
-	/*
-	int total_ships = 0;
-	int enemy_halite = 0;
-	int enemy_ships = 0;
-	int my_halite = me.TotalHalite();
-	int my_ships = me.ships.size();
-
-	for (auto& pp : game->players) {
-		total_ships += pp.second.ships.size();
-		if (pp.first != me.id) {
-			int hal = pp.second.TotalHalite();
-			if (hal > enemy_halite) {
-				enemy_halite = hal;
-				enemy_ships = pp.second.ships.size();
-			}
-		}
-	}
-	double halite_collected_perc = game->map->halite_remaining / (double)game->total_halite;
-	*/
-
 	// HARD MAX TURNS
 	if (game->turn >= 0.8 * constants::MAX_TURNS)
 		return false;
@@ -44,7 +24,7 @@ bool Strategy::ShouldSpawnShip()
 		return true;
 
 	// HARD MAX COLLECTED
-	if (game->map->halite_remaining / (double)(game->map->width * game->map->height) < 60)
+	if (game->map->halite_remaining / (double)(constants::MAP_WIDTH * constants::MAP_HEIGHT) < 60)
 		return false;
 
 	return game->turn <= 0.65 * constants::MAX_TURNS;
@@ -58,15 +38,15 @@ std::vector<Position> Strategy::BestDropoffSpots()
 	best_dropoff.x = -1;
 	best_dropoff.y = -1;
 
-	if (me.ships.size() >= features::dropoff_ships_needed /* 14 */ * me.dropoffs.size() && game->turn <= 0.75 * constants::MAX_TURNS) {
+	if (me.ships.size() >= features::dropoff_ships_needed * me.dropoffs.size() && game->turn <= 0.75 * constants::MAX_TURNS) {
 		// find a good spot for a dropoff
 		double bestRatio = -1;
 
-		for (int x = 0; x < game->map->width; x++) {
-			for (int y = 0; y < game->map->height; y++) {
+		for (int x = 0; x < constants::MAP_WIDTH; x++) {
+			for (int y = 0; y < constants::MAP_HEIGHT; y++) {
 				Position pos = { x, y };
 				int distance_to_closest_dropoff = closestDropoffDist[x][y];
-				if (distance_to_closest_dropoff > std::ceil(game->map->width * features::dropoff_map_distance)) {
+				if (distance_to_closest_dropoff > std::ceil(constants::MAP_WIDTH * features::dropoff_map_distance)) {
 					AreaInfo& info = game->map->GetCell(pos).near_info[5];
 					if (info.num_ally_ships > 0 && info.num_ally_ships >= info.num_enemy_ships) {
 						if (info.avgHalite / game->map->map_avg_halite >= features::dropoff_avg_threshold) {
@@ -195,7 +175,7 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 
 	static std::vector<Edge> edges;
 	edges.clear();
-	edges.reserve(me.ships.size() * game->map->width * game->map->height);
+	edges.reserve(me.ships.size() * constants::MAP_WIDTH * constants::MAP_HEIGHT);
 
 	// Create mining edges
 	for (auto& sp : me.ships) {
@@ -206,8 +186,8 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 		double miningPriorityMap[64][64];
 #endif
 
-		for (int x = 0; x < game->map->width; x++) {
-			for (int y = 0; y < game->map->height; y++) {
+		for (int x = 0; x < constants::MAP_WIDTH; x++) {
+			for (int y = 0; y < constants::MAP_HEIGHT; y++) {
 				Position p = { x, y };
 				if (!game->IsDropoff(p)) {
 					Cell& c = game->map->GetCell(p);
@@ -275,9 +255,9 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 #ifdef HALITE_LOCAL
 		/*
 		json data_map;
-		for (int y = 0; y < game->map->height; y++) {
+		for (int y = 0; y < constants::MAP_HEIGHT; y++) {
 			json data_row;
-			for (int x = 0; x < game->map->width; x++) {
+			for (int x = 0; x < constants::MAP_WIDTH; x++) {
 				data_row.push_back(miningPriorityMap[x][y]);
 			}
 			data_map.push_back(data_row);
@@ -303,8 +283,8 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 
 	// Assign mining
 	static bool mining_assigned[64][64]; // 0=not assigned, X=available in X turns
-	for (int x = 0; x < game->map->width; x++)
-		for (int y = 0; y < game->map->height; y++)
+	for (int x = 0; x < constants::MAP_WIDTH; x++)
+		for (int y = 0; y < constants::MAP_HEIGHT; y++)
 			mining_assigned[x][y] = false;
 
 	for (Edge& e : edges) {
@@ -365,8 +345,8 @@ void Strategy::FillClosestDropoffDist()
 {
 	Player& me = game->GetMyPlayer();
 
-	for (int x = 0; x < game->map->width; x++) {
-		for (int y = 0; y < game->map->height; y++) {
+	for (int x = 0; x < constants::MAP_WIDTH; x++) {
+		for (int y = 0; y < constants::MAP_HEIGHT; y++) {
 			closestDropoffDist[x][y] = me.DistanceToClosestDropoff({ x, y });
 		}
 	}
