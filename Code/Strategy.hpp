@@ -30,6 +30,6 @@ public:
 	int reserved_halite;
 
 	std::vector<Ship*> shipsToNavigate;
-	int closestDropoffDist[64][64];
+	int closestDropoffDist[MAX_MAP_SIZE][MAX_MAP_SIZE];
 	
 };

@@ -26,7 +26,7 @@ struct OptimalPathCell {
 	bool added = false;
 
 	double ratio() const {
-		return (turns * 10000) + (haliteCost * 10) + (double)tor_dist / 100.0;
+		return (turns * 1000.0) + tor_dist + haliteCost / 10000.0;
 	}
 
 	bool operator<(const OptimalPathCell& rhs) const
@@ -35,11 +35,10 @@ struct OptimalPathCell {
 	}
 };
 struct OptimalPathMap {
-	OptimalPathCell cells[64][64];
+	OptimalPathCell cells[MAX_MAP_SIZE][MAX_MAP_SIZE];
 };
 
 struct NavigationOption {
-	int option_index;
 	double optionCost;
 	Position pos;
 	Direction direction;
@@ -52,7 +51,7 @@ public:
 
 	void MinCostBFS(Position start, OptimalPathMap& map);
 
-	std::vector<NavigationOption> NavigationOptionsForShip(Ship* s);
+	std::vector<NavigationOption> NavigationOptionsForShip(Ship* ship);
 
 	void Clear();
 	bool IsHitFree(const Position pos);
@@ -61,6 +60,5 @@ public:
 	Strategy* strategy;
 	Game* game;
 
-	BlockedCell hits[64][64];
-	bool collided[64][64];
+	BlockedCell hits[MAX_MAP_SIZE][MAX_MAP_SIZE];
 };

@@ -137,3 +137,8 @@ Ship* Player::GetShipWithHighestPriority(std::vector<Ship*>& ships)
 		return nullptr;
 	return *it;
 }
+
+bool Ship::CanMove()
+{
+	return halite >= Game::Get()->map->GetCell(pos).MoveCost();
+}

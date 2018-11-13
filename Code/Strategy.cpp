@@ -45,17 +45,28 @@ std::vector<Position> Strategy::BestDropoffSpots()
 		for (int x = 0; x < constants::MAP_WIDTH; x++) {
 			for (int y = 0; y < constants::MAP_HEIGHT; y++) {
 				Position pos = { x, y };
-				int distance_to_closest_dropoff = closestDropoffDist[x][y];
-				if (distance_to_closest_dropoff > std::ceil(constants::MAP_WIDTH * features::dropoff_map_distance)) {
-					AreaInfo& info = game->map->GetCell(pos).near_info[5];
-					if (info.num_ally_ships > 0 && info.num_ally_ships >= info.num_enemy_ships) {
-						if (info.avgHalite / game->map->map_avg_halite >= features::dropoff_avg_threshold) {
-							double ratio = info.avgHalite / (distance_to_closest_dropoff * distance_to_closest_dropoff);
-							if (ratio > bestRatio) {
-								bestRatio = ratio;
-								best_dropoff = pos;
+				if (!game->IsDropoff(pos)) {
+					Cell& c = game->map->GetCell(pos);
+					double ratio = -1;
+
+					if (c.halite > 3000) {
+						ratio = INF + c.halite;
+					}
+					else {
+						int distance_to_closest_dropoff = closestDropoffDist[x][y];
+						if (distance_to_closest_dropoff > std::ceil(constants::MAP_WIDTH * features::dropoff_map_distance)) {
+							AreaInfo& info = c.near_info[5];
+							if (info.num_ally_ships > 0 && info.num_ally_ships >= info.num_enemy_ships) {
+								if (info.avgHalite / game->map->map_avg_halite >= features::dropoff_avg_threshold) {
+									ratio = info.avgHalite / (distance_to_closest_dropoff * distance_to_closest_dropoff);
+								}
 							}
 						}
+					}
+
+					if (ratio > bestRatio) {
+						bestRatio = ratio;
+						best_dropoff = pos;
 					}
 				}
 			}
@@ -139,7 +150,7 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 		if (s->assigned) continue;
 
 		int time_to_drop = closestDropoffDist[s->pos.x][s->pos.y];
-		if (game->turn + time_to_drop * 1.2 >= constants::MAX_TURNS) {
+		if (game->turn + std::ceil(time_to_drop * 1.255) >= constants::MAX_TURNS) {
 			allow_dropoff_collision = true;
 			s->dropping = true;
 		}
@@ -178,12 +189,14 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 	edges.reserve(me.ships.size() * constants::MAP_WIDTH * constants::MAP_HEIGHT);
 
 	// Create mining edges
+	double threshold = std::min(35.0, game->map->map_avg_halite * 0.8);
+
 	for (auto& sp : me.ships) {
 		Ship* s = sp.second;
 		if (s->assigned) continue;
 
-#ifdef HALITE_LOCAL
-		double miningPriorityMap[64][64];
+#ifdef HALITE_DEBUG
+		double miningPriorityMap[MAX_MAP_SIZE][MAX_MAP_SIZE];
 #endif
 
 		for (int x = 0; x < constants::MAP_WIDTH; x++) {
@@ -192,7 +205,7 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 				if (!game->IsDropoff(p)) {
 					Cell& c = game->map->GetCell(p);
 
-					if (c.halite > 35) {
+					if (c.halite > threshold) {
 						Edge edge;
 						edge.s = s;
 						edge.position = p;
@@ -222,11 +235,9 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 							double time_cost = 0;
 							double profit = 0;
 
-							//time_cost = dist_to_cell * features::time_cost_dist_target + dist_to_dropoff * features::time_cost_dist_dropoff + mining_turns * features::time_cost_mining;
-							//time_cost = dist_to_cell * 3 + dist_to_dropoff + mining_turns;
-							//time_cost = dist_to_cell * 3 + dist_to_dropoff * 0.2 + mining_turns * 5;
-							time_cost = dist_to_cell * 2.77 + dist_to_dropoff * 0.33 + mining_turns * 8.88;
-							profit = halite_ship;
+							profit = halite_ship + (c.near_info[4].avgHalite / game->map->map_avg_halite) * 100.0;
+							time_cost = dist_to_cell * 3.0 + dist_to_dropoff * 0.2 + mining_turns * 5.0;
+							profit -= c.near_info[4].num_ally_ships * 20;
 
 							double ratio = profit / time_cost;
 
@@ -242,7 +253,7 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 						}
 
 						if (edge.priority > 0) {
-#ifdef HALITE_LOCAL
+#ifdef HALITE_DEBUG
 							miningPriorityMap[p.x][p.y] = edge.priority;
 #endif
 							edges.push_back(edge);
@@ -252,7 +263,7 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 			}
 		}
 
-#ifdef HALITE_LOCAL
+#ifdef HALITE_DEBUG
 		/*
 		json data_map;
 		for (int y = 0; y < constants::MAP_HEIGHT; y++) {
@@ -282,7 +293,7 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 	});
 
 	// Assign mining
-	static bool mining_assigned[64][64]; // 0=not assigned, X=available in X turns
+	static bool mining_assigned[MAX_MAP_SIZE][MAX_MAP_SIZE]; // 0=not assigned, X=available in X turns
 	for (int x = 0; x < constants::MAP_WIDTH; x++)
 		for (int y = 0; y < constants::MAP_HEIGHT; y++)
 			mining_assigned[x][y] = false;

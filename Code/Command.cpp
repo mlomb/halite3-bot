@@ -9,7 +9,7 @@ Command SpawnCommand()
 
 Command MoveCommand(EntityID id, Direction direction)
 {
-#ifdef HALITE_LOCAL
+#ifdef HALITE_DEBUG
 	Ship* s = Game::Get()->GetMyPlayer().ships[id];
 	out::LogShip(s->ship_id, {
 		{ "task_type", s->task.type },

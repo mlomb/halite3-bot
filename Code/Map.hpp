@@ -29,6 +29,10 @@ struct Cell {
 	Ship* ship_on_cell;
 	int enemy_reach_halite; // min
 	PlayerID dropoff_owned;
+
+	int MoveCost() {
+		return std::floor(halite * (1.0 / (double)constants::MOVE_COST_RATIO));
+	}
 };
 
 class Map {
@@ -41,7 +45,7 @@ public:
 	void CalculateNearInfo(Cell& c);
 
 	inline Cell& GetCell(const Position& pos) {
-#ifdef HALITE_LOCAL
+#ifdef HALITE_DEBUG
 		/*
 		if (pos.x < 0 || pos.y < 0 || pos.x >= width || pos.y >= height) {
 		out::Log("GetCell out of bounds: " + pos.str() + " -- Crash incoming");
@@ -55,5 +59,5 @@ public:
 	int width, height;
 	int halite_remaining;
 	double map_avg_halite;
-	Cell cells[64][64];
+	Cell cells[MAX_MAP_SIZE][MAX_MAP_SIZE];
 };

@@ -19,6 +19,8 @@ struct Ship {
 	ShipTask task;
 	bool assigned = false;
 	bool dropping = false;
+
+	bool CanMove();
 };
 
 class Player {

@@ -16,6 +16,7 @@
 class Ship;
 
 const int INF = 99999999;
+const int MAX_MAP_SIZE = 64;
 
 typedef int PlayerID;
 typedef int EntityID;

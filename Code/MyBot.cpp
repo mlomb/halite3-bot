@@ -2,7 +2,7 @@
 
 #include "Game.hpp"
 
-#ifdef HALITE_LOCAL
+#ifdef HALITE_DEBUG
 #ifdef _WIN32
 #include <Windows.h>
 #endif
@@ -10,13 +10,13 @@
 
 
 int main(int argc, char **argv) {
-#ifdef HALITE_LOCAL
+#ifdef HALITE_DEBUG
 	//Sleep(20 * 1000);
 #endif
 
 	Game game;
 
-	game.Initialize("mlomb-bot-v55");
+	game.Initialize("mlomb-bot-v58");
 	{
 		// Load features
 
