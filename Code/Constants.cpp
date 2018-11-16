@@ -16,6 +16,7 @@ namespace constants {
 	int GAME_SEED;
 	int MAP_WIDTH;
 	int MAP_HEIGHT;
+	unsigned int RANDOM_SEED;
 }
 
 namespace features {

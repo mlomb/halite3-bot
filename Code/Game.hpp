@@ -39,6 +39,7 @@ public:
 
 	Map* map;
 	Strategy* strategy;
+
 private:
 	static Game* s_Instance;
 };

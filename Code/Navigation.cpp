@@ -125,6 +125,8 @@ std::vector<NavigationOption> Navigation::NavigationOptionsForShip(Ship* ship)
 	for (const Direction direction : dirs) {
 		Position pp = ship->pos.DirectionalOffset(direction);
 
+		//out::Log("Ship " + std::to_string(ship->ship_id) + " option " + std::to_string(static_cast<int>(direction)) + " at " + pp.str());
+
 		/// --------------------------------------------------------------
 		Cell& c = game_map->GetCell(target);
 		Cell& moving_cell = game_map->GetCell(pp);
@@ -213,13 +215,16 @@ void Navigation::Navigate(std::vector<Ship*> ships, std::vector<Command>& comman
 	for (; it != ships.end(); ) {
 		Ship* s = *it;
 		if (!s->CanMove()) {
+			//out::Log("SHIP " + std::to_string(s->ship_id) + " CANT MOVE AT " + s->pos.str());
 			hits[s->pos.x][s->pos.y] = BlockedCell::TRANSIENT;
 			commands.push_back(MoveCommand(s->ship_id, Direction::STILL));
 			it = ships.erase(it);
 			continue;
 		}
 		if(s->pos.ToroidalDistanceTo(s->task.position) <= 1 && !me.IsDropoff(s->task.position)) {
-			hits[s->task.position.x][s->task.position.y] = BlockedCell::GHOST;
+			if (hits[s->task.position.x][s->task.position.y] == BlockedCell::EMPTY) {
+				hits[s->task.position.x][s->task.position.y] = BlockedCell::GHOST;
+			}
 		}
 
 		it++;

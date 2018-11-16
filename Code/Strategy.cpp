@@ -3,17 +3,68 @@
 #include "Game.hpp"
 #include "Navigation.hpp"
 
+#include <fdeep/fdeep.hpp>
+
 const int DROP_THRESHOLD = 970;
 
-Strategy::Strategy(Game* game)
-{
+// Models
+const fdeep::model& GetSpawnShipModel() {
+	try {
+		int num_players = Game::Get()->num_players;
+		static const auto m = fdeep::load_model("model-ship-spawn-" + std::to_string(num_players) + "p.json", true, out::Log);
+		return m;
+	}
+	catch (const std::exception& e) {
+		out::Log(std::string(e.what()));
+		throw e;
+	}
+}
+
+Strategy::Strategy(Game* game) {
 	this->game = game;
 	this->navigation = new Navigation(this);
+}
+
+void Strategy::Initialize()
+{
+	GetSpawnShipModel();
 }
 
 bool Strategy::ShouldSpawnShip()
 {
 	auto& me = game->GetMyPlayer();
+
+	int enemy_halite = 0;
+	int enemy_ships = 0;
+	int my_halite = me.TotalHalite();
+	int my_ships = me.ships.size();
+	for (auto& pp : game->players) {
+		if (pp.first != me.id) {
+			enemy_halite = pp.second.TotalHalite();
+			enemy_ships = pp.second.ships.size();
+		}
+	}
+
+	/*
+	/// ML
+	const auto result = GetSpawnShipModel().predict({
+		fdeep::tensor5(fdeep::shape5(1, 1, 1, 1, 7),{
+			(float)constants::MAX_TURNS - game->turn,
+			(float)game->map->width * game->map->height,
+			(float)game->map->halite_remaining,
+			(float)my_halite,
+			(float)my_ships,
+			(float)enemy_halite,
+			(float)enemy_ships
+		})
+	});
+
+	// TODO Check this
+	bool spawn_ship = (*result[0].as_vector())[0] > 0.9;
+
+	return spawn_ship;
+	*/
+
 
 	// HARD MAX TURNS
 	if (game->turn >= 0.8 * constants::MAX_TURNS)
@@ -172,6 +223,7 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 	}
 
 	/* ATTACKS */
+
 	// Nothing yet ;)
 
 	/* MINING */
@@ -235,10 +287,23 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 							double time_cost = 0;
 							double profit = 0;
 
-							profit = halite_ship + (c.near_info[4].avgHalite / game->map->map_avg_halite) * 100.0;
-							time_cost = dist_to_cell * 3.0 + dist_to_dropoff * 0.2 + mining_turns * 5.0;
+							
+							//profit = halite_ship + (c.near_info[4].avgHalite / game->map->map_avg_halite) * 100.0;
+							//time_cost = dist_to_cell * 3.0 + dist_to_dropoff * 0.2 + mining_turns * 5.0;
+							//profit -= c.near_info[4].num_ally_ships * 20;
+
+							profit = c.halite + (c.near_info[4].avgHalite / game->map->map_avg_halite) * 100.0;
+							if (c.inspiration) {
+								profit *= 3;
+							}
+							time_cost = dist_to_cell * 4.0 + dist_to_dropoff * 0.8 + mining_turns * 3.0;
 							profit -= c.near_info[4].num_ally_ships * 20;
 
+							/*
+							profit = halite_ship + (c.near_info[4].avgHalite / game->map->map_avg_halite) * 100.0;
+							time_cost = dist_to_cell * 1 + dist_to_dropoff * 0.25 + mining_turns * 3;
+							profit -= c.near_info[4].num_ally_ships * 20;
+							*/
 							double ratio = profit / time_cost;
 
 							if (ratio > edge.priority) {
@@ -346,9 +411,11 @@ void Strategy::Execute(std::vector<Command>& commands)
 	//------------------------------- SHIP SPAWNING
 	if (!allow_dropoff_collision &&
 		game->CanSpawnShip(reserved_halite) &&
-		navigation->IsHitFree(me.shipyard_position) &&
-		ShouldSpawnShip()) {
-		commands.push_back(SpawnCommand());
+		navigation->IsHitFree(me.shipyard_position)) {
+		bool spawn_ship = ShouldSpawnShip();
+		if(spawn_ship)
+			commands.push_back(SpawnCommand());
+		out::Log("We can spawn a ship. Spawned? " + std::to_string(spawn_ship));
 	}
 }
 

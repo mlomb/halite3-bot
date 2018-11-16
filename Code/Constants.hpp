@@ -31,6 +31,8 @@ namespace constants {
 	extern int MAP_WIDTH;
 	/** Map height */
 	extern int MAP_HEIGHT;
+	/** Random number for this instance */
+	extern unsigned int RANDOM_SEED;
 }
 
 namespace features {

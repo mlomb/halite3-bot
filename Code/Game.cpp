@@ -8,8 +8,8 @@ Game* Game::s_Instance = nullptr;
 Game::Game()
 {
 	s_Instance = this;
-	strategy = new Strategy(this);
 	map = new Map(this);
+	strategy = new Strategy(this);
 }
 
 void Game::Initialize(const std::string& bot_name)
@@ -18,6 +18,7 @@ void Game::Initialize(const std::string& bot_name)
 
 	json constants_json = json::parse(in::GetString());
 	LoadConstants(constants_json);
+	constants::RANDOM_SEED = rand();
 	in::GetSStream() >> num_players >> my_id;
 
 	out::Open(my_id);
@@ -32,6 +33,7 @@ void Game::Initialize(const std::string& bot_name)
 	map->Initialize();
 
 	total_halite = map->halite_remaining;
+	strategy->Initialize(); 
 	
 	std::cout << bot_name << std::endl;
 
@@ -42,6 +44,7 @@ void Game::Initialize(const std::string& bot_name)
 	out::Log("Map: " + std::to_string(map->width) + "x" + std::to_string(map->height));
 	out::Log("Total Halite: " + std::to_string(total_halite));
 	out::Log("Seed: " + std::to_string(constants::GAME_SEED));
+	out::Log("Random seed: " + std::to_string(constants::RANDOM_SEED));
 	out::Log("----------------------------");
 }
 

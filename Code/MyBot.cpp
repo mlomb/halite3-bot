@@ -1,22 +1,26 @@
 #include <iostream>
 
 #include "Game.hpp"
+#include "Strategy.hpp"
 
-#ifdef HALITE_DEBUG
+
 #ifdef _WIN32
 #include <Windows.h>
 #endif
-#endif
-
 
 int main(int argc, char **argv) {
 #ifdef HALITE_DEBUG
 	//Sleep(20 * 1000);
 #endif
 
+#ifdef _WIN32
+	srand(time(NULL) + GetCurrentProcessId());
+#else
+	srand(time(NULL));
+#endif
 	Game game;
 
-	game.Initialize("mlomb-bot-v58");
+	game.Initialize("mlomb-bot-v61");
 	{
 		// Load features
 

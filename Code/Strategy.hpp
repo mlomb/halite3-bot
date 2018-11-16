@@ -1,5 +1,6 @@
 #pragma once
 
+
 #include <vector>
 #include <queue>
 #include <set>
@@ -9,11 +10,14 @@
 #include "Map.hpp"
 #include "Navigation.hpp"
 
+
 class Game;
 
 class Strategy {
 public:
 	Strategy(Game* game);
+
+	void Initialize();
 
 	void AssignTasks(std::vector<Command>& commands);
 	void Execute(std::vector<Command>& commands);
@@ -31,5 +35,4 @@ public:
 
 	std::vector<Ship*> shipsToNavigate;
 	int closestDropoffDist[MAX_MAP_SIZE][MAX_MAP_SIZE];
-	
 };
