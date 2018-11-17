@@ -125,7 +125,7 @@ std::vector<NavigationOption> Navigation::NavigationOptionsForShip(Ship* ship)
 	for (const Direction direction : dirs) {
 		Position pp = ship->pos.DirectionalOffset(direction);
 
-		//out::Log("Ship " + std::to_string(ship->ship_id) + " option " + std::to_string(static_cast<int>(direction)) + " at " + pp.str());
+		//out::Log("Ship " + std::to_string(ship->ship_id) + " option " + std::to_string(static_cast<int>(direction)) + " at " + pp.str() + "   policy: " + std::to_string(static_cast<int>(policy)));
 
 		/// --------------------------------------------------------------
 		Cell& c = game_map->GetCell(target);
@@ -148,26 +148,12 @@ std::vector<NavigationOption> Navigation::NavigationOptionsForShip(Ship* ship)
 				if (policy == EnemyPolicy::DODGE) {
 					optionCost += INF + (constants::MAX_HALITE - moving_cell.enemy_reach_halite);
 				}
-				else if (policy == EnemyPolicy::ENGAGE) {
-					// si la nave mas cercana enemiga esta mas cerca que la nave mas cercana aliada don't go.
-					if (moving_cell_info.num_enemy_ships > moving_cell_info.num_ally_ships_not_dropping) {
-						optionCost += INF + (constants::MAX_HALITE - moving_cell.enemy_reach_halite);
-					}
-					if (dist_2nd_enemy <= dist_2nd_ally) {
-						optionCost += INF + (constants::MAX_HALITE - moving_cell.enemy_reach_halite);
-					}
-				}
 			}
 		}
 		else {
-			if (is_other_enemy && policy == EnemyPolicy::ENGAGE) {
-				if (moving_cell_info.num_ally_ships_not_dropping > moving_cell_info.num_enemy_ships + 1 &&
-					dist_2nd_enemy >= dist_2nd_ally &&
-					ship->halite < 750 &&
-					(other_ship->halite > 500)) {
-					optionCost = 1;
-					possibleOption = true;
-				}
+			if (is_other_enemy && policy == EnemyPolicy::ENGAGE && ship->task.type == TaskType::ATTACK && ship->task.position == pp) {
+				optionCost = 1;
+				possibleOption = true;
 			}
 		}
 		/// --------------------------------------------------------------

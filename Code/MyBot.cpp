@@ -20,7 +20,7 @@ int main(int argc, char **argv) {
 #endif
 	Game game;
 
-	game.Initialize("mlomb-bot-v62");
+	game.Initialize("mlomb-bot-v63");
 	{
 		// Load features
 

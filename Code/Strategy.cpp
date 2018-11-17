@@ -185,7 +185,7 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 
 		dropoff_ship->task.position = dropoff_spot;
 		dropoff_ship->task.type = TaskType::TRANSFORM_INTO_DROPOFF;
-		dropoff_ship->task.policy = EnemyPolicy::DODGE;
+		dropoff_ship->task.policy = game->map->GetCell(dropoff_spot).halite > 3000 ? EnemyPolicy::ENGAGE : EnemyPolicy::DODGE;
 		dropoff_ship->task.priority = dropoff_ship->halite;
 
 		reserved_halite += constants::DROPOFF_COST - dropoff_ship->halite - game->map->GetCell(dropoff_spot).halite;
@@ -199,6 +199,10 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 	for (auto& sp : me.ships) {
 		Ship* s = sp.second;
 		if (s->assigned) continue;
+
+		if (s->halite < 300) {
+			s->dropping = false;
+		}
 
 		int time_to_drop = closestDropoffDist[s->pos.x][s->pos.y];
 		if (game->turn + std::ceil(time_to_drop * 1.255) >= constants::MAX_TURNS) {
@@ -223,8 +227,27 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 	}
 
 	/* ATTACKS */
+	for (auto& pp : game->players) {
+		if (pp.first == me.id) continue;
 
-	// Nothing yet ;)
+		for (auto& ss : pp.second.ships) {
+			// For each enemy ship
+			Cell& c = game->map->GetCell(ss.second->pos);
+			if (c.near_info[4].num_ally_ships_not_dropping > c.near_info[4].num_enemy_ships) {
+				Ship* near_ship = me.ClosestShipAt(c.pos);
+				if (!near_ship || near_ship->assigned) continue;
+
+				near_ship->assigned = true;
+
+				near_ship->task.position = c.pos;
+				near_ship->task.type = TaskType::ATTACK;
+				near_ship->task.policy = EnemyPolicy::ENGAGE;
+				near_ship->task.priority = ss.second->halite;
+
+				shipsToNavigate.push_back(near_ship);
+			}
+		}
+	}
 
 	/* MINING */
 	struct Edge {
@@ -272,47 +295,19 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 						edge.time_travel = 0;
 						edge.time_mining = 0;
 
-						for (int mining_turns = 1; mining_turns <= 20; mining_turns++) {
-							int mined = ceil((1.0 / constants::EXTRACT_RATIO) * halite_available);
-							int mined_profit = mined;
-							if (c.inspiration && constants::INSPIRATION_ENABLED) {
-								mined_profit *= constants::INSPIRED_BONUS_MULTIPLIER + 1;
-							}
+						double profit, time_cost;
 
-							halite_ship += mined_profit;
-							halite_ship = std::min(halite_ship, constants::MAX_HALITE);
-							halite_available -= mined;
-							halite_mined += mined_profit;
-
-							double time_cost = 0;
-							double profit = 0;
-
-
-							if (game->num_players == 4) {
-								profit = c.halite + (c.near_info[4].avgHalite / game->map->map_avg_halite) * 100.0;
-								if (c.inspiration) {
-									profit *= 3;
-								}
-								time_cost = dist_to_cell * 4.0 + dist_to_dropoff * 0.8 + mining_turns * 3.0;
-								profit -= c.near_info[4].num_ally_ships * 20;
-							}
-							else { // num_players == 2
-								time_cost = dist_to_cell * 2.77 + dist_to_dropoff * 0.33 + mining_turns * 8.88;
-								profit = halite_ship;
-							}
-
-							double ratio = profit / time_cost;
-
-							if (ratio > edge.priority) {
-								edge.priority = ratio;
-								edge.time_travel = dist_to_cell;
-								edge.time_mining = mining_turns;
-							}
-
-							if (halite_ship >= DROP_THRESHOLD) {
-								break;
-							}
+						profit = c.halite + (c.near_info[4].avgHalite / game->map->map_avg_halite) * 100.0;
+						if (c.inspiration) {
+							profit *= 3;
 						}
+						time_cost = dist_to_cell * 4.0 + dist_to_dropoff * 0.8;
+						profit += c.near_info[4].num_ally_ships * 15;
+						profit -= c.near_info[4].num_enemy_ships * 25;
+
+						edge.priority = profit / time_cost;
+						edge.time_travel = dist_to_cell;
+						edge.time_mining = 0;
 
 						if (edge.priority > 0) {
 #ifdef HALITE_DEBUG
@@ -368,7 +363,7 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 
 			e.s->task.position = e.position;
 			e.s->task.type = TaskType::MINE;
-			e.s->task.policy = EnemyPolicy::ENGAGE;
+			e.s->task.policy = EnemyPolicy::NONE;
 			e.s->task.priority = e.priority;
 
 			shipsToNavigate.push_back(e.s);
@@ -387,10 +382,21 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 		Position closest_dropoff = me.ClosestDropoff(s->pos);
 		s->task.position = closest_dropoff;
 		s->task.type = TaskType::DROP;
-		s->task.policy = EnemyPolicy::DODGE;
+		s->task.policy = EnemyPolicy::NONE;
 		s->task.priority = s->halite;
 
 		shipsToNavigate.push_back(s);
+	}
+
+	/* CHECK FOR DANGER */
+	for (Ship* s : shipsToNavigate) {
+		// dodge if necessary
+		if (s->task.policy == EnemyPolicy::NONE) {
+			Cell& c = game->map->GetCell(s->pos);
+			if (c.near_info[3].num_enemy_ships >= c.near_info[3].num_ally_ships_not_dropping) {
+				s->task.policy = EnemyPolicy::DODGE;
+			}
+		}
 	}
 }
  
