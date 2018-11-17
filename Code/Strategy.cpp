@@ -302,8 +302,8 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 							profit *= 3;
 						}
 						time_cost = dist_to_cell * 4.0 + dist_to_dropoff * 0.8;
-						profit += c.near_info[4].num_ally_ships * 15;
-						profit -= c.near_info[4].num_enemy_ships * 25;
+						profit -= c.near_info[4].num_ally_ships * 20;
+						// try 2p with num_ally_ships like v63
 
 						edge.priority = profit / time_cost;
 						edge.time_travel = dist_to_cell;
