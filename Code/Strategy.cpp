@@ -78,7 +78,29 @@ bool Strategy::ShouldSpawnShip()
 	if (game->map->halite_remaining / (double)(constants::MAP_WIDTH * constants::MAP_HEIGHT) < 60)
 		return false;
 
-	return game->turn <= 0.65 * constants::MAX_TURNS;
+	double max = 0.65;
+	switch (game->num_players) {
+	case 2:
+		switch (game->map->width) {
+		case 32: max = 60; break;
+		case 40: max = 62; break;
+		case 48: max = 65; break;
+		case 56: max = 68; break;
+		case 64: max = 70; break;
+		}
+		break;
+	case 4:
+		switch (game->map->width) {
+		case 32: max = 38; break;
+		case 40: max = 42; break;
+		case 48: max = 45; break;
+		case 56: max = 52; break;
+		case 64: max = 55; break;
+		}
+		break;
+	}
+	
+	return game->turn <= max * constants::MAX_TURNS;
 }
 
 std::vector<Position> Strategy::BestDropoffSpots()
@@ -259,7 +281,6 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 		Position position;
 		double priority;
 		int time_travel;
-		int time_mining;
 	};
 
 	static std::vector<Edge> edges;
@@ -284,39 +305,34 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 					Cell& c = game->map->GetCell(p);
 
 					if (c.halite > threshold) {
-						Edge edge;
-						edge.s = s;
-						edge.position = p;
-
 						int dist_to_cell = s->pos.ToroidalDistanceTo(p);
 						int dist_to_dropoff = closestDropoffDist[p.x][p.y];
-						int halite_available = c.halite;
-						int halite_ship = s->halite;
-						int halite_mined = 0;
-
-						edge.priority = 0;
-						edge.time_travel = 0;
-						edge.time_mining = 0;
 
 						double profit, time_cost;
 
 						profit = c.halite + (c.near_info[4].avgHalite / game->map->map_avg_halite) * 100.0;
-						if (c.inspiration) {
-							profit *= 3;
+						if (c.inspiration && constants::INSPIRATION_ENABLED) {
+							profit *= 1 + constants::INSPIRED_BONUS_MULTIPLIER;
 						}
 						time_cost = dist_to_cell * 4.0 + dist_to_dropoff * 0.8;
-						if (game->num_players == 2) {
-							// try 2p with num_ally_ships like v63
-							profit += c.near_info[4].num_ally_ships * 15;
-							profit -= c.near_info[4].num_enemy_ships * 25;
-						}
-						else {
-							profit -= c.near_info[4].num_ally_ships * 20;
-						}
+						//if (game->map->width == 32 && game->num_players == 4) {
+						//
+						//}
+						//else {
+							if (game->num_players == 2) {
+								profit += c.near_info[4].num_ally_ships * 15;
+								profit -= c.near_info[4].num_enemy_ships * 25;
+							}
+							else {
+								profit -= c.near_info[4].num_ally_ships * 20;
+							}
+						//}
 
+						Edge edge;
+						edge.s = s;
+						edge.position = p;
 						edge.priority = profit / time_cost;
 						edge.time_travel = dist_to_cell;
-						edge.time_mining = 0;
 
 						if (edge.priority > 0) {
 #ifdef HALITE_DEBUG
@@ -359,7 +375,7 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 	});
 
 	// Assign mining
-	static bool mining_assigned[MAX_MAP_SIZE][MAX_MAP_SIZE]; // 0=not assigned, X=available in X turns
+	static bool mining_assigned[MAX_MAP_SIZE][MAX_MAP_SIZE];
 	for (int x = 0; x < constants::MAP_WIDTH; x++)
 		for (int y = 0; y < constants::MAP_HEIGHT; y++)
 			mining_assigned[x][y] = false;
