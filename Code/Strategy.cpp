@@ -287,23 +287,20 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 							double time_cost = 0;
 							double profit = 0;
 
-							
-							//profit = halite_ship + (c.near_info[4].avgHalite / game->map->map_avg_halite) * 100.0;
-							//time_cost = dist_to_cell * 3.0 + dist_to_dropoff * 0.2 + mining_turns * 5.0;
-							//profit -= c.near_info[4].num_ally_ships * 20;
 
-							profit = c.halite + (c.near_info[4].avgHalite / game->map->map_avg_halite) * 100.0;
-							if (c.inspiration) {
-								profit *= 3;
+							if (game->num_players == 4) {
+								profit = c.halite + (c.near_info[4].avgHalite / game->map->map_avg_halite) * 100.0;
+								if (c.inspiration) {
+									profit *= 3;
+								}
+								time_cost = dist_to_cell * 4.0 + dist_to_dropoff * 0.8 + mining_turns * 3.0;
+								profit -= c.near_info[4].num_ally_ships * 20;
 							}
-							time_cost = dist_to_cell * 4.0 + dist_to_dropoff * 0.8 + mining_turns * 3.0;
-							profit -= c.near_info[4].num_ally_ships * 20;
+							else { // num_players == 2
+								time_cost = dist_to_cell * 2.77 + dist_to_dropoff * 0.33 + mining_turns * 8.88;
+								profit = halite_ship;
+							}
 
-							/*
-							profit = halite_ship + (c.near_info[4].avgHalite / game->map->map_avg_halite) * 100.0;
-							time_cost = dist_to_cell * 1 + dist_to_dropoff * 0.25 + mining_turns * 3;
-							profit -= c.near_info[4].num_ally_ships * 20;
-							*/
 							double ratio = profit / time_cost;
 
 							if (ratio > edge.priority) {
@@ -351,7 +348,7 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 
 	// Sort edges
 	std::sort(edges.begin(), edges.end(), [](const Edge& a, const Edge& b) {
-		if (std::fabs(a.priority - b.priority) < 0.00001)
+		if (std::fabs(a.priority - b.priority) < 0.5)
 			return a.time_travel < b.time_travel;
 		else
 			return a.priority > b.priority;

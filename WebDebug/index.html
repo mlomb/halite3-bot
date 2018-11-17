@@ -1,0 +1,666 @@
+<style>
+body {
+	background: #181818;
+	color: white;
+    overflow: hidden;
+}
+div#dropZone {
+	background: gray;
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	z-index: 999;
+	opacity: 0.6;
+	visibility: hidden;
+}
+canvas {
+    image-rendering: pixelated;
+}
+</style>
+
+<div id="dropZone"></div>
+<canvas id="canvas" width="2540" height="1024"></canvas>
+<br>
+Turn: <input style="width: 900px;" type="range" min="1" id="slider-turn"><span class="turn"></span><br><br>
+
+<span id="hoverinfo"></span>
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.3/dat.gui.min.js"></script>
+<script>
+
+const colours = ["#c5ec98", "#66cccc", "#ff9999", "#ffbe00"];
+var canvas = document.getElementById("canvas");
+var ctx = canvas.getContext("2d");
+
+var separation;
+var cell_size;
+
+var game_engine = null;
+var game = null;
+var turn = 0;
+
+var selection = null;
+
+var Tuning = function() {
+	this.dist_to_cell = 3;
+	this.dist_to_dropoff = 0.2;
+	this.mining_turns = 5.0;
+};
+var tuning = new Tuning();
+
+var gui = new dat.GUI();
+gui.add(tuning, 'dist_to_cell',    0, 5).onChange(redraw);
+gui.add(tuning, 'dist_to_dropoff', 0, 5).onChange(redraw);
+gui.add(tuning, 'mining_turns',    0, 5).onChange(redraw);
+
+function copyMap(src, dst) {
+	for(var x = 0; x < game.width; x++) {
+		if(!(x in dst)) dst[x] = [];
+		
+		for(var y = 0; y < game.height; y++) {
+			var h;
+			if(src[x][y].hasOwnProperty('halite'))
+				h = src[x][y].halite;
+			else if(src[y][x].hasOwnProperty('energy'))
+				h = src[y][x].energy; // y, x
+		
+			dst[x][y] = {
+				halite: h
+			};
+		}
+	}
+}
+
+function ToroidalDistanceTo(a, b) {
+	var dx = Math.abs(a.x - b.x);
+	var dy = Math.abs(a.y - b.y);
+	
+	var t_dx = Math.min(dx, game.width - dx);
+	var t_dy = Math.min(dy, game.height - dy);
+	
+	return t_dx + t_dy;
+}
+
+function ClosestDropoffDist(player_id, p) {
+	var closest = 999999999;
+	
+	for(var dropoff of game.frames[turn].players[player_id].dropoffs) {
+		var dist = ToroidalDistanceTo(p, dropoff);
+		if(dist < closest)
+			closest = dist;
+	}
+	
+	return closest;
+}
+
+
+function loadGame(data) {
+	console.log("Loading game...");
+	game_engine = data;
+	console.log(game_engine);
+	
+	// RESET
+	game = null;
+	$("#slider-turn").attr('max', game_engine.full_frames.length).val(0);
+	
+	// BUILD DATA
+	game = {
+		turns: game_engine.full_frames.length,
+		width: game_engine.production_map.width,
+		height: game_engine.production_map.height,
+		frames: []
+	};
+	game.frames[0] = {
+		map: [],
+		players: []
+	};
+	copyMap(game_engine.production_map.grid, game.frames[0].map);
+
+	for(var player_id in game_engine.players) {
+		game.frames[0].players[player_id] = {
+			dropoffs: [game_engine.players[player_id].factory_location]
+		};
+	}
+	
+	for(var turn in game_engine.full_frames) {
+		var frame = game_engine.full_frames[turn];
+		var turn_i = parseInt(turn) + 1;
+		
+		game.frames[turn_i] = {
+			map: [],
+			players: [],
+			events: frame.events || [],
+		};
+		
+		// copy last turn map
+		copyMap(game.frames[turn_i - 1].map, game.frames[turn_i].map);
+		
+		// update map
+		for(var cell_i in frame.cells) {
+			var cell = frame.cells[cell_i];
+			game.frames[turn_i].map[cell.x][cell.y].halite = cell.production;
+		}
+		
+		// copy last turn dropoffs
+		for(var player_id in game_engine.players) {
+			game.frames[turn_i].players[player_id] = {
+				dropoffs: [].concat(game.frames[turn_i - 1].players[player_id].dropoffs),
+				entities: game_engine.full_frames[turn_i - 1].entities[player_id] || [],
+				moves: game_engine.full_frames[turn_i - 1].moves[player_id] || [],
+			};
+		}
+		
+		for(var event_i in frame.events) {
+			var event = frame.events[event_i];
+			if(event.type == 'construct') {
+				game.frames[turn_i].players[event.owner_id].dropoffs.push(event.location);
+			}
+		}
+	}
+	
+	console.log(game);
+	
+	separation = 1;
+	cell_size = (canvas.width - separation * game.width) / game.width;
+	
+	update();
+}
+
+function update() {
+	turn = parseInt($("#slider-turn").val());
+	$(".turn").text(turn + "/" + game.turns);
+	redraw();
+}
+
+function redraw() {
+	var p1 = ctx.transformedPoint(0,0);
+	var p2 = ctx.transformedPoint(canvas.width,canvas.height);
+	ctx.clearRect(p1.x,p1.y,p2.x-p1.x,p2.y-p1.y);
+
+	ctx.save();
+	ctx.setTransform(1,0,0,1,0,0);
+	ctx.clearRect(0, 0, canvas.width, canvas.height);
+	ctx.fillStyle = "#181818";
+	ctx.fillRect(0, 0, canvas.width, canvas.height);
+	ctx.restore();
+
+	ctx.fillStyle = "black";
+	ctx.fillRect(0, 0, canvas.width, canvas.height);
+	
+	if(game == null) return;
+	
+	var frame = game.frames[turn];
+	console.log(frame);
+	
+	var selected_ship = null;
+	if(selection) {
+		for(var player_id in frame.players) {
+			var player = frame.players[player_id];
+			for(var entity_id in player.entities) {
+				var entity = player.entities[entity_id];
+				
+				if(entity.x == selection.x && entity.y == selection.y) {
+					selected_ship = entity;
+					selected_ship.owner_id = player_id;
+				}
+			}
+		}
+	}
+	
+	var map_to_display = [];
+	var map_to_display_max = 0;
+	for(var x = 0; x < game.width; x++) {
+		map_to_display[x] = [];
+		for(var y = 0; y < game.height; y++) {
+			map_to_display[x][y] = frame.map[x][y].halite;
+			
+			if(selected_ship) {
+			
+			
+				map_to_display[x][y] = 0;
+				
+				var p = {
+					x: x,
+					y: y
+				};
+				
+				var dist_to_cell = ToroidalDistanceTo(selected_ship, p);
+				var dist_to_dropoff = ClosestDropoffDist(selected_ship.owner_id, p);
+				var halite_available = frame.map[x][y].halite;
+				var halite_ship = selected_ship.energy;
+				var halite_mined = 0;
+
+				for (var mining_turns = 1; mining_turns <= 20; mining_turns++) {
+					var mined = Math.ceil(0.25 * halite_available);
+					var mined_profit = mined;
+					if (selected_ship.is_inspired) {
+						mined_profit *= 3;
+					}
+
+					halite_ship += mined_profit;
+					halite_ship = Math.min(halite_ship, 1000);
+					halite_available -= mined;
+					halite_mined += mined_profit;
+					
+					var profit = frame.map[x][y].halite;//halite_ship;
+					var time_cost = dist_to_cell * tuning.dist_to_cell + dist_to_dropoff * tuning.dist_to_dropoff + mining_turns * tuning.mining_turns;
+					/*
+					profit = halite_ship + (c.near_info[4].avgHalite / game->map->map_avg_halite) * 100.0;
+					time_cost = dist_to_cell * 3.0 + dist_to_dropoff * 0.2 + mining_turns * 5.0;
+					profit -= c.near_info[4].num_ally_ships * 20;
+					*/
+					
+					var ratio = profit / time_cost;
+
+					if (ratio > map_to_display[x][y]) {
+						map_to_display[x][y] = ratio;
+					}
+
+					if (halite_ship >= 970) {
+						break;
+					}
+				}
+				
+				map_to_display_max = Math.max(map_to_display_max, map_to_display[x][y]);
+			} else {
+				map_to_display_max = 1000;
+			}
+			
+			
+		}
+	}
+	
+	
+	ctx.textAlign = "center";
+	ctx.textBaseline = 'middle';
+	
+	for(var y = 0; y < game.height; y++) {
+		for(var x = 0; x < game.width; x++) {
+
+			ctx.beginPath();
+			ctx.rect(x * cell_size + x * separation, y * cell_size + y * separation, cell_size, cell_size);
+			ctx.closePath();
+			
+			if(selection && selection.x == x && selection.y == y) {
+				ctx.strokeStyle = 'orange';
+				ctx.stroke();
+			}
+			
+			var light_factor = map_to_display[x][y] / map_to_display_max;
+			if(light_factor == 0) continue;
+			
+			ctx.fillStyle = 'hsl(0, 0%, ' + Math.round(light_factor * 100, 2) + '%)';
+			ctx.fill();
+			
+		}
+	}
+	
+	
+	for(var player_id in frame.players) {
+		var player = frame.players[player_id];
+		
+		for(var dropoff of player.dropoffs) {
+			ctx.fillStyle = colours[player_id];
+			ctx.fillRect(dropoff.x * cell_size + dropoff.x * separation, dropoff.y * cell_size + dropoff.y * separation, cell_size, cell_size);
+		}
+		
+		for(var entity_id in player.entities) {
+			var entity = player.entities[entity_id];
+			
+			var x = entity.x;
+			var y = entity.y;
+			
+			var off_x = x * separation;
+			var off_y = y * separation;
+			
+			var move = 'o';
+			var moves = player.moves.filter(move => move.id == entity_id);
+			if(moves.length > 0)
+				move = moves[0].direction;
+			
+			ctx.beginPath();
+			
+			// stolen from Fluorine
+			var a = 0.1;
+			var b = 0.5;
+			var c = 1 - a;
+			switch(move) {
+			case "n":
+				ctx.moveTo((x + a) * cell_size + off_x, (y + c) * cell_size + off_y);
+				ctx.lineTo((x + c) * cell_size + off_x, (y + c) * cell_size + off_y);
+				ctx.lineTo((x + b) * cell_size + off_x, (y + a) * cell_size + off_y);
+				break;
+			case "s":
+				ctx.moveTo((x + a) * cell_size + off_x, (y + a) * cell_size + off_y);
+				ctx.lineTo((x + c) * cell_size + off_x, (y + a) * cell_size + off_y);
+				ctx.lineTo((x + b) * cell_size + off_x, (y + c) * cell_size + off_y);
+				break;
+			case "e":
+				ctx.moveTo((x + a) * cell_size + off_x, (y + a) * cell_size + off_y);
+				ctx.lineTo((x + a) * cell_size + off_x, (y + c) * cell_size + off_y);
+				ctx.lineTo((x + c) * cell_size + off_x, (y + b) * cell_size + off_y);
+				break;
+			case "w":
+				ctx.moveTo((x + c) * cell_size + off_x, (y + a) * cell_size + off_y);
+				ctx.lineTo((x + c) * cell_size + off_x, (y + c) * cell_size + off_y);
+				ctx.lineTo((x + a) * cell_size + off_x, (y + b) * cell_size + off_y);
+				break;
+			default:
+				ctx.arc((x + b) * cell_size + off_x, (y + b) * cell_size + off_y, 0.35 * cell_size, 0, 2 * Math.PI, false);
+				break;
+			}
+			ctx.closePath();
+			
+			ctx.fillStyle = "#000000";
+			ctx.fill();
+			
+			ctx.globalAlpha = entity.energy / 1000;
+			ctx.fillStyle = colours[player_id];
+			ctx.fill();
+			ctx.globalAlpha = 1;
+			
+			ctx.strokeStyle = colours[player_id];
+			ctx.lineWidth = 1;
+			ctx.stroke();
+			
+			ctx.font = "3.5px Arial";
+			ctx.fillStyle = 'orange';
+			ctx.fillText(entity.energy, (x+0.5) * cell_size + off_x, (y+0.5) * cell_size + off_y);
+			
+			var profit = 0;
+			
+			if(move == 'o') {
+				profit = Math.ceil(0.25 * frame.map[x][y].halite);
+				if(entity.is_inspired) {
+					profit *= 3;
+				}
+			} else {
+				profit = -Math.floor(0.1 * frame.map[x][y].halite);
+			}
+			
+			if(profit != 0) {
+				ctx.font = "2.5px Arial";
+				ctx.fillStyle = profit > 0 ? 'lime' : 'red';
+				ctx.fillText((profit > 0 ? '+' : '-') + Math.abs(profit), (x+0.5) * cell_size + off_x, (y+0.7) * cell_size + off_y);
+			}
+		}
+	}
+	
+	ctx.font = "2.5px Arial";
+	
+	for(var y = 0; y < game.height; y++) {
+		for(var x = 0; x < game.width; x++) {
+			var txt = map_to_display[x][y].toFixed(1);
+			if(map_to_display[x][y] == 0) continue;
+			ctx.fillStyle = 'magenta';
+			ctx.fillText(txt, x * cell_size + x * separation + cell_size * 0.5, y * cell_size + y * separation + cell_size * 0.1);
+		}
+	}
+	
+	
+	for(var event_i in frame.events) {
+		var event = frame.events[event_i];
+		if(event.type == 'shipwreck') {
+			ctx.fillStyle = 'red';
+			ctx.fillRect(event.location.x * cell_size + event.location.x * separation, event.location.y * cell_size + event.location.y * separation, cell_size, cell_size);
+		}
+	}
+	
+	
+}
+
+function inBounds(x, y) {
+	return !(x < 0 || y < 0 || x > game.width || y > game.height);
+}
+
+function hoverInfo(point) {
+	if(!point || !game) return;
+
+	var x = Math.floor(point.x / (cell_size + separation));
+	var y = Math.floor(point.y / (cell_size + separation));
+	
+	var hover_info = "";
+	hover_info += "X: " + x + "   Y: " + y + "<br>";
+	
+	if(inBounds(x, y)) {
+		hover_info += "info";
+	} else {
+		hover_info += "Out of bounds!";
+	}
+	
+	$("#hoverinfo").html(hover_info);
+}
+function cellClick(point) {
+	if(!point || !game) return;
+	
+	var x = Math.floor(point.x / (cell_size + separation));
+	var y = Math.floor(point.y / (cell_size + separation));
+	
+	if(inBounds(x, y)) {
+		if(selection && selection.x == x && selection.y == y) {
+			selection = null;
+			redraw();
+			return;
+		}
+		selection = { x: x, y: y };
+		redraw();
+		return;
+	}
+	selection = null;
+}
+
+$("#slider-turn").on('input', update);
+window.addEventListener("keydown", function(e) {
+	switch(e.keyCode) {
+		case 37: // left key
+			$("#slider-turn").val(turn - 1);
+		break;
+		case 39: // right key
+			$("#slider-turn").val(turn + 1);
+		break;
+	}
+
+	update();
+}, false);
+
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script>
+
+
+
+
+
+
+
+
+var lastX=canvas.width/2, lastY=canvas.height/2;
+
+var dragStart,dragged;
+
+canvas.addEventListener('mousedown',function(evt){
+  document.body.style.mozUserSelect = document.body.style.webkitUserSelect = document.body.style.userSelect = 'none';
+  lastX = evt.offsetX || (evt.pageX - canvas.offsetLeft);
+  lastY = evt.offsetY || (evt.pageY - canvas.offsetTop);
+  dragStart = ctx.transformedPoint(lastX,lastY);
+  dragged = false;
+},false);
+
+canvas.addEventListener('mousemove',function(evt){
+  lastX = evt.offsetX || (evt.pageX - canvas.offsetLeft);
+  lastY = evt.offsetY || (evt.pageY - canvas.offsetTop);
+  dragged = true;
+	var pt = ctx.transformedPoint(lastX,lastY);
+	hoverInfo(pt)
+	if (dragStart){
+		ctx.translate(pt.x-dragStart.x,pt.y-dragStart.y);
+		redraw();
+	}
+},false);
+
+canvas.addEventListener('mouseup',function(evt){
+  if (!dragged) cellClick(dragStart);
+  dragStart = null;
+  //if (!dragged) zoom(evt.shiftKey ? -1 : 1 );
+},false);
+
+var scaleFactor = 1.1;
+
+var zoom = function(clicks){
+  var pt = ctx.transformedPoint(lastX,lastY);
+  ctx.translate(pt.x,pt.y);
+  var factor = Math.pow(scaleFactor,clicks);
+  ctx.scale(factor,factor);
+  ctx.translate(-pt.x,-pt.y);
+  redraw();
+}
+
+var handleScroll = function(evt){
+  var delta = evt.wheelDelta ? evt.wheelDelta/40 : evt.detail ? -evt.detail : 0;
+  if (delta) zoom(delta);
+  return evt.preventDefault() && false;
+};
+
+canvas.addEventListener('DOMMouseScroll',handleScroll,false);
+canvas.addEventListener('mousewheel',handleScroll,false);
+
+
+function trackTransforms(ctx){
+  var svg = document.createElementNS("http://www.w3.org/2000/svg",'svg');
+  var xform = svg.createSVGMatrix();
+  ctx.getTransform = function(){ return xform; };
+
+  var savedTransforms = [];
+  var save = ctx.save;
+  ctx.save = function(){
+	  savedTransforms.push(xform.translate(0,0));
+	  return save.call(ctx);
+  };
+
+  var restore = ctx.restore;
+  ctx.restore = function(){
+	xform = savedTransforms.pop();
+	return restore.call(ctx);
+		  };
+
+  var scale = ctx.scale;
+  ctx.scale = function(sx,sy){
+	xform = xform.scaleNonUniform(sx,sy);
+	return scale.call(ctx,sx,sy);
+		  };
+
+  var rotate = ctx.rotate;
+  ctx.rotate = function(radians){
+	  xform = xform.rotate(radians*180/Math.PI);
+	  return rotate.call(ctx,radians);
+  };
+
+  var translate = ctx.translate;
+  ctx.translate = function(dx,dy){
+	  xform = xform.translate(dx,dy);
+	  return translate.call(ctx,dx,dy);
+  };
+
+  var transform = ctx.transform;
+  ctx.transform = function(a,b,c,d,e,f){
+	  var m2 = svg.createSVGMatrix();
+	  m2.a=a; m2.b=b; m2.c=c; m2.d=d; m2.e=e; m2.f=f;
+	  xform = xform.multiply(m2);
+	  return transform.call(ctx,a,b,c,d,e,f);
+  };
+
+  var setTransform = ctx.setTransform;
+  ctx.setTransform = function(a,b,c,d,e,f){
+	  xform.a = a;
+	  xform.b = b;
+	  xform.c = c;
+	  xform.d = d;
+	  xform.e = e;
+	  xform.f = f;
+	  return setTransform.call(ctx,a,b,c,d,e,f);
+  };
+
+  var pt  = svg.createSVGPoint();
+  ctx.transformedPoint = function(x,y){
+	  pt.x=x; pt.y=y;
+	  return pt.matrixTransform(xform.inverse());
+  }
+}
+
+trackTransforms(ctx);
+dragStart = ctx.transformedPoint(lastX,lastY);
+dragged = false;
+
+
+
+
+
+
+
+
+
+var dropZone = document.getElementById('dropZone');
+
+function showDropZone() {
+    dropZone.style.visibility = "visible";
+}
+function hideDropZone() {
+    dropZone.style.visibility = "hidden";
+}
+
+function allowDrag(e) {
+    if (true) {  // Test that the item being dragged is a valid one
+        e.dataTransfer.dropEffect = 'copy';
+        e.preventDefault();
+    }
+}
+
+function handleDrop(e) {
+    e.preventDefault();
+    hideDropZone();
+
+	var reader = new FileReader();
+	reader.onloadend = function() {
+		var data = JSON.parse(this.result);
+		loadGame(data);
+	};
+	reader.readAsText(event.dataTransfer.files[0]);
+}
+
+// 1
+window.addEventListener('dragenter', function(e) {
+    showDropZone();
+});
+
+// 2
+dropZone.addEventListener('dragenter', allowDrag);
+dropZone.addEventListener('dragover', allowDrag);
+
+// 3
+dropZone.addEventListener('dragleave', function(e) {
+    hideDropZone();
+});
+
+// 4
+dropZone.addEventListener('drop', handleDrop);
+</script>
