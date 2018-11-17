@@ -40,8 +40,8 @@ bool Strategy::ShouldSpawnShip()
 	int my_ships = me.ships.size();
 	for (auto& pp : game->players) {
 		if (pp.first != me.id) {
-			enemy_halite = pp.second.TotalHalite();
-			enemy_ships = pp.second.ships.size();
+			enemy_halite += pp.second.TotalHalite();
+			enemy_ships += pp.second.ships.size();
 		}
 	}
 
@@ -76,6 +76,10 @@ bool Strategy::ShouldSpawnShip()
 
 	// HARD MAX COLLECTED
 	if (game->map->halite_remaining / (double)(constants::MAP_WIDTH * constants::MAP_HEIGHT) < 60)
+		return false;
+
+	// HARD MAX SHIPS
+	if (my_ships > 20 && my_ships > enemy_ships * 2)
 		return false;
 
 	double max = 0.65;
@@ -266,7 +270,8 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 					if (game->map->map_avg_halite <= 15 ||
 						game->map->halite_remaining / (double)game->total_halite < 0.15 ||
 						(me.ships.size() > 20 && me.ships.size() >= 2 * total_enemy_ships) ||
-						(c.near_info[4].num_ally_ships > 3 && c.near_info[5].num_ally_ships > 3 * c.near_info[5].num_enemy_ships)) {
+						(c.near_info[4].num_ally_ships > 3 && c.near_info[5].num_ally_ships > 3 * c.near_info[5].num_enemy_ships) ||
+						(c.near_info[5].num_ally_ships > c.near_info[5].num_enemy_ships && c.halite > 650)) {
 					if (c.near_info[4].num_ally_ships_not_dropping + 1 > c.near_info[4].num_enemy_ships && // is safe
 						ss.second->halite > 200) { // is worth
 
@@ -435,7 +440,7 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 		// dodge if necessary
 		if (s->task.policy == EnemyPolicy::NONE) {
 			Cell& c = game->map->GetCell(s->pos);
-			if (c.near_info[3].num_enemy_ships >= c.near_info[3].num_ally_ships_not_dropping || s->halite > 600) {
+			if (c.near_info[3].num_enemy_ships > c.near_info[3].num_ally_ships - 1 || s->halite > 600) {
 				s->task.policy = EnemyPolicy::DODGE;
 			}
 		}
