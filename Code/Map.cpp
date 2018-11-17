@@ -119,12 +119,12 @@ void Map::CalculateNearInfo(Cell& c)
 						info.num_ally_ships++;
 						if (!it_cell.ship_on_cell->dropping) {
 							info.num_ally_ships_not_dropping++;
-							info.ally_ships_not_dropping_dist.push_back(d);
+							info.ally_ships_not_dropping_dist.push_back(std::make_pair(d, it_cell.ship_on_cell));
 						}
 					}
 					else {
 						info.num_enemy_ships++;
-						info.enemy_ships_dist.push_back(d);
+						info.enemy_ships_dist.push_back(std::make_pair(d, it_cell.ship_on_cell));
 
 						if (d <= 1) {
 							if (c.enemy_reach_halite == -1 || it_cell.ship_on_cell->halite < c.enemy_reach_halite) {

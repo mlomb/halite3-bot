@@ -91,8 +91,8 @@ bool Strategy::ShouldSpawnShip()
 		break;
 	case 4:
 		switch (game->map->width) {
-		case 32: max = 38; break;
-		case 40: max = 42; break;
+		case 32: max = 36; break;
+		case 40: max = 40; break;
 		case 48: max = 45; break;
 		case 56: max = 52; break;
 		case 64: max = 55; break;
@@ -249,26 +249,48 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 	}
 
 	/* ATTACKS */
-	if (game->num_players == 2) {
-		// aggressiv on 2p only
-		for (auto& pp : game->players) {
-			if (pp.first == me.id) continue;
+	int total_enemy_ships = 0;
+	for (auto& pp : game->players) {
+		if (pp.first != me.id) {
+			total_enemy_ships += pp.second.ships.size();
+		}
+	}
+	if (!game->strategy->allow_dropoff_collision) {
+			for (auto& pp : game->players) {
+				if (pp.first == me.id) continue;
 
-			for (auto& ss : pp.second.ships) {
-				// For each enemy ship
-				Cell& c = game->map->GetCell(ss.second->pos);
-				if (c.near_info[4].num_ally_ships_not_dropping > c.near_info[4].num_enemy_ships) {
-					Ship* near_ship = me.ClosestShipAt(c.pos);
-					if (!near_ship || near_ship->assigned) continue;
+				for (auto& ss : pp.second.ships) {
+					// For each enemy ship
+					Cell& c = game->map->GetCell(ss.second->pos);
 
-					near_ship->assigned = true;
+					if (game->map->map_avg_halite <= 15 ||
+						game->map->halite_remaining / (double)game->total_halite < 0.15 ||
+						(me.ships.size() > 20 && me.ships.size() >= 2 * total_enemy_ships) ||
+						(c.near_info[4].num_ally_ships > 3 && c.near_info[5].num_ally_ships > 3 * c.near_info[5].num_enemy_ships)) {
+					if (c.near_info[4].num_ally_ships_not_dropping + 1 > c.near_info[4].num_enemy_ships && // is safe
+						ss.second->halite > 200) { // is worth
 
-					near_ship->task.position = c.pos;
-					near_ship->task.type = TaskType::ATTACK;
-					near_ship->task.policy = EnemyPolicy::ENGAGE;
-					near_ship->task.priority = ss.second->halite;
+						// near ships
+						int num_assigned = 0;
+						for (auto& ns : c.near_info[5].ally_ships_not_dropping_dist) {
+							Ship* near_ship = ns.second;
+							if (ns.second->assigned) continue;
+							if (near_ship->halite > 750) {
+								continue;
+							}
 
-					shipsToNavigate.push_back(near_ship);
+							near_ship->assigned = true;
+
+							near_ship->task.position = c.pos;
+							near_ship->task.type = TaskType::ATTACK;
+							near_ship->task.policy = EnemyPolicy::ENGAGE;
+							near_ship->task.priority = ss.second->halite;
+
+							shipsToNavigate.push_back(near_ship);
+							num_assigned++;
+							if (num_assigned >= 2) break;
+						}
+					}
 				}
 			}
 		}
@@ -315,18 +337,13 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 							profit *= 1 + constants::INSPIRED_BONUS_MULTIPLIER;
 						}
 						time_cost = dist_to_cell * 4.0 + dist_to_dropoff * 0.8;
-						//if (game->map->width == 32 && game->num_players == 4) {
-						//
-						//}
-						//else {
-							if (game->num_players == 2) {
-								profit += c.near_info[4].num_ally_ships * 15;
-								profit -= c.near_info[4].num_enemy_ships * 25;
-							}
-							else {
-								profit -= c.near_info[4].num_ally_ships * 20;
-							}
-						//}
+						if (game->num_players == 2) {
+							profit += std::min(c.near_info[4].num_ally_ships_not_dropping, 6) * 15;
+							profit -= std::min(c.near_info[4].num_enemy_ships, 6) * 25;
+						}
+						else {
+							profit -= std::min(c.near_info[4].num_ally_ships_not_dropping, 6) * 20;
+						}
 
 						Edge edge;
 						edge.s = s;
@@ -418,7 +435,7 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 		// dodge if necessary
 		if (s->task.policy == EnemyPolicy::NONE) {
 			Cell& c = game->map->GetCell(s->pos);
-			if (c.near_info[3].num_enemy_ships >= c.near_info[3].num_ally_ships_not_dropping) {
+			if (c.near_info[3].num_enemy_ships >= c.near_info[3].num_ally_ships_not_dropping || s->halite > 600) {
 				s->task.policy = EnemyPolicy::DODGE;
 			}
 		}
