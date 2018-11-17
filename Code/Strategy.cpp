@@ -227,24 +227,27 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 	}
 
 	/* ATTACKS */
-	for (auto& pp : game->players) {
-		if (pp.first == me.id) continue;
+	if (game->num_players == 2) {
+		// aggressiv on 2p only
+		for (auto& pp : game->players) {
+			if (pp.first == me.id) continue;
 
-		for (auto& ss : pp.second.ships) {
-			// For each enemy ship
-			Cell& c = game->map->GetCell(ss.second->pos);
-			if (c.near_info[4].num_ally_ships_not_dropping > c.near_info[4].num_enemy_ships) {
-				Ship* near_ship = me.ClosestShipAt(c.pos);
-				if (!near_ship || near_ship->assigned) continue;
+			for (auto& ss : pp.second.ships) {
+				// For each enemy ship
+				Cell& c = game->map->GetCell(ss.second->pos);
+				if (c.near_info[4].num_ally_ships_not_dropping > c.near_info[4].num_enemy_ships) {
+					Ship* near_ship = me.ClosestShipAt(c.pos);
+					if (!near_ship || near_ship->assigned) continue;
 
-				near_ship->assigned = true;
+					near_ship->assigned = true;
 
-				near_ship->task.position = c.pos;
-				near_ship->task.type = TaskType::ATTACK;
-				near_ship->task.policy = EnemyPolicy::ENGAGE;
-				near_ship->task.priority = ss.second->halite;
+					near_ship->task.position = c.pos;
+					near_ship->task.type = TaskType::ATTACK;
+					near_ship->task.policy = EnemyPolicy::ENGAGE;
+					near_ship->task.priority = ss.second->halite;
 
-				shipsToNavigate.push_back(near_ship);
+					shipsToNavigate.push_back(near_ship);
+				}
 			}
 		}
 	}
@@ -302,8 +305,14 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 							profit *= 3;
 						}
 						time_cost = dist_to_cell * 4.0 + dist_to_dropoff * 0.8;
-						profit -= c.near_info[4].num_ally_ships * 20;
-						// try 2p with num_ally_ships like v63
+						if (game->num_players == 2) {
+							// try 2p with num_ally_ships like v63
+							profit += c.near_info[4].num_ally_ships * 15;
+							profit -= c.near_info[4].num_enemy_ships * 25;
+						}
+						else {
+							profit -= c.near_info[4].num_ally_ships * 20;
+						}
 
 						edge.priority = profit / time_cost;
 						edge.time_travel = dist_to_cell;
