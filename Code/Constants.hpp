@@ -50,4 +50,6 @@ namespace features {
 	extern double ally_enemy_ratio;
 	extern double ally_halite_less;
 	extern double halite_ratio_less;
+
+	extern double a, b, c, d, e, f, g;
 }

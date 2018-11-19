@@ -34,4 +34,6 @@ namespace features {
 	double ally_enemy_ratio;
 	double ally_halite_less;
 	double halite_ratio_less;
+
+	double a, b, c, d, e, f, g;
 }

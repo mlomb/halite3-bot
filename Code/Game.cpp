@@ -19,6 +19,7 @@ void Game::Initialize(const std::string& bot_name)
 	json constants_json = json::parse(in::GetString());
 	LoadConstants(constants_json);
 	constants::RANDOM_SEED = rand();
+	mt().seed(constants::GAME_SEED + constants::RANDOM_SEED);
 	in::GetSStream() >> num_players >> my_id;
 
 	out::Open(my_id);
@@ -95,6 +96,14 @@ void Game::LoadFeatures(json& features)
 	GET_FEATURE(ally_enemy_ratio);
 	GET_FEATURE(ally_halite_less);
 	GET_FEATURE(halite_ratio_less);
+
+	GET_FEATURE(a);
+	GET_FEATURE(b);
+	GET_FEATURE(c);
+	GET_FEATURE(d);
+	GET_FEATURE(e);
+	GET_FEATURE(f);
+	GET_FEATURE(g);
 
 	out::Log("----------------------------");
 }

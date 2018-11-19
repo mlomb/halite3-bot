@@ -19,6 +19,28 @@ const fdeep::model& GetSpawnShipModel() {
 		throw e;
 	}
 }
+const fdeep::model& GetMineModel() {
+	try {
+		static const auto m = fdeep::load_model("Train/model-mine.json", true, out::Log);
+		return m;
+	}
+	catch (const std::exception& e) {
+		out::Log(std::string(e.what()));
+		throw e;
+	}
+}
+
+void appendVectorToFile(std::ofstream& file_handle, std::vector<float>& vec) {
+	std::string line = "[";
+	for (int i = 0; i < vec.size(); i++) {
+		if (i)
+			line += ",";
+		line += std::to_string(vec[i]);
+	}
+	line += "]";
+
+	file_handle << line << "\n";
+}
 
 Strategy::Strategy(Game* game) {
 	this->game = game;
@@ -317,13 +339,12 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 	// Create mining edges
 	double threshold = std::min(35.0, game->map->map_avg_halite * 0.8);
 
+	std::uniform_real_distribution<double> random_01(0.0, 1.0);
+	std::mt19937_64& mersenne_twister = mt();
+
 	for (auto& sp : me.ships) {
 		Ship* s = sp.second;
 		if (s->assigned) continue;
-
-#ifdef HALITE_DEBUG
-		double miningPriorityMap[MAX_MAP_SIZE][MAX_MAP_SIZE];
-#endif
 
 		for (int x = 0; x < constants::MAP_WIDTH; x++) {
 			for (int y = 0; y < constants::MAP_HEIGHT; y++) {
@@ -335,62 +356,77 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 						int dist_to_cell = s->pos.ToroidalDistanceTo(p);
 						int dist_to_dropoff = closestDropoffDist[p.x][p.y];
 
-						double profit, time_cost;
+						double priority = 0;
+						double profit = 0, time_cost = 0;
 
-						profit = c.halite + (c.near_info[4].avgHalite / game->map->map_avg_halite) * 100.0;
-						if (c.inspiration && constants::INSPIRATION_ENABLED) {
-							profit *= 1 + constants::INSPIRED_BONUS_MULTIPLIER;
-						}
-						time_cost = dist_to_cell * 4.0 + dist_to_dropoff * 0.8;
-						if (game->num_players == 2) {
-							profit += std::min(c.near_info[4].num_ally_ships_not_dropping, 6) * 15;
-							profit -= std::min(c.near_info[4].num_enemy_ships, 6) * 25;
-						}
-						else {
-							profit -= std::min(c.near_info[4].num_ally_ships_not_dropping, 6) * 20;
+						if(game->num_players == 2 && game->map->width <= 48) { // 32, 40, 48
+
+							// Testing
+							/*
+							if (game->num_players == 2 && game->map->width == 32) {
+								time_cost = 0;
+								profit = 0;
+								time_cost += dist_to_cell * features::a;
+								time_cost += dist_to_dropoff * features::b;
+								profit += c.halite * features::c;
+								profit += s->halite * features::d;
+								profit += (c.near_info[4].avgHalite / game->map->map_avg_halite) * features::e;
+								if (c.inspiration && constants::INSPIRATION_ENABLED) {
+									profit *= 1 + constants::INSPIRED_BONUS_MULTIPLIER;
+								}
+
+								profit += c.near_info[4].num_ally_ships_not_dropping * features::f;
+								profit += c.near_info[4].num_enemy_ships * features::g;
+							}*/
+
+							double k = c.halite - game->map->map_avg_halite;
+							if (c.inspiration && constants::INSPIRATION_ENABLED) {
+								k *= 1 + constants::INSPIRED_BONUS_MULTIPLIER;
+							}
+							k += c.near_info[4].num_ally_ships_not_dropping * features::e;
+							k += c.near_info[4].num_enemy_ships * features::f;
+
+							double d = powf(k / (double)constants::MAX_HALITE + features::c, features::d); // 0.075   0.55
+							profit = d;
+							time_cost = dist_to_cell * features::a + dist_to_dropoff * features::b; // 4.2   1.5
+							time_cost = time_cost;
+						} else {
+							profit = c.halite + (c.near_info[4].avgHalite / game->map->map_avg_halite) * 100.0;
+
+							time_cost = dist_to_cell * 4.0 + dist_to_dropoff * 0.8;
+							if (c.inspiration && constants::INSPIRATION_ENABLED) {
+								profit *= 1 + constants::INSPIRED_BONUS_MULTIPLIER;
+							}
+							if (game->num_players == 2) {
+								profit += std::min(c.near_info[4].num_ally_ships_not_dropping, 6) * 15;
+								profit -= std::min(c.near_info[4].num_enemy_ships, 6) * 25;
+							}
+							else {
+								profit -= std::min(c.near_info[4].num_ally_ships_not_dropping, 6) * 20;
+							}
 						}
 
-						Edge edge;
-						edge.s = s;
-						edge.position = p;
-						edge.priority = profit / time_cost;
-						edge.time_travel = dist_to_cell;
+						priority = profit / time_cost;
 
-						if (edge.priority > 0) {
-#ifdef HALITE_DEBUG
-							miningPriorityMap[p.x][p.y] = edge.priority;
-#endif
+						if (priority > 0) {
+							Edge edge;
+							edge.s = s;
+							edge.position = p;
+							edge.priority = priority;
+							edge.time_travel = dist_to_cell;
 							edges.push_back(edge);
 						}
 					}
 				}
 			}
 		}
-
-#ifdef HALITE_DEBUG
-		/*
-		json data_map;
-		for (int y = 0; y < constants::MAP_HEIGHT; y++) {
-			json data_row;
-			for (int x = 0; x < constants::MAP_WIDTH; x++) {
-				data_row.push_back(miningPriorityMap[x][y]);
-			}
-			data_map.push_back(data_row);
-		}
-		out::LogFluorineDebug({
-			{ "type", "priority" },
-			{ "position_x", s->pos.x },
-			{ "position_y", s->pos.y }
-			}, data_map);
-		*/
-#endif
 	}
 
 	out::Log("Edges: " + std::to_string(edges.size()));
 
 	// Sort edges
 	std::sort(edges.begin(), edges.end(), [](const Edge& a, const Edge& b) {
-		if (std::fabs(a.priority - b.priority) < 0.5)
+		if (std::fabs(a.priority - b.priority) < 0.0001)
 			return a.time_travel < b.time_travel;
 		else
 			return a.priority > b.priority;
