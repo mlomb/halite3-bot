@@ -125,7 +125,11 @@ void Game::Play()
 
 void Game::Update()
 {
-	in::GetSStream() >> turn;
+	{
+		out::Stopwatch s("Engine response wait");
+		in::GetSStream() >> turn;
+	}
+
 	remaining_turns = constants::MAX_TURNS - turn;
 	out::Log("=============== TURN " + std::to_string(turn) + " ================");
 	turn_started = std::chrono::system_clock::now();

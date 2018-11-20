@@ -46,6 +46,8 @@ void Map::Update()
 
 void Map::Process()
 {
+	out::Stopwatch s("Map Process");
+
 	halite_remaining = 0;
 	for (int x = 0; x < width; x++) {
 		for (int y = 0; y < height; y++) {
@@ -80,7 +82,6 @@ void Map::Process()
 			c.inspiration = c.near_info[constants::INSPIRATION_RADIUS].num_enemy_ships >= constants::INSPIRATION_SHIP_COUNT;
 		}
 	}
-
 }
 
 void Map::CalculateNearInfo(Cell& c)

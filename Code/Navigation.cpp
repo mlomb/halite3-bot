@@ -100,6 +100,8 @@ std::vector<NavigationOption> Navigation::NavigationOptionsForShip(Ship* ship)
 	Player& me = game->GetMyPlayer();
 	Map* game_map = game->map;
 
+	Cell& current_cell = game_map->GetCell(ship->pos);
+
 	Position target = ship->task.position;
 	EnemyPolicy policy = ship->task.policy;
 
@@ -107,8 +109,17 @@ std::vector<NavigationOption> Navigation::NavigationOptionsForShip(Ship* ship)
 	case TaskType::NONE:
 		target = ship->pos;
 		break;
+	case TaskType::DROP:
+		if (current_cell.halite > 300) {
+			//int closest_enemy = current_cell.near_info[5].enemy_ships_dist.size() > 0 ? current_cell.near_info[5].enemy_ships_dist[0].first : INF;
+			//int cloest_ally = current_cell.near_info[5].ally_ships_not_dropping_dist.size() > 1 ? current_cell.near_info[5].ally_ships_not_dropping_dist[1].first : INF;
+			if (current_cell.near_info[2].num_enemy_ships > 0 && current_cell.near_info[3].num_ally_ships_not_dropping > 0) {
+				target = ship->pos;
+			}
+		}
+		break;
 	}
-	if (strategy->closestDropoffDist[ship->pos.x][ship->pos.y] <= 2) {
+	if (strategy->closestDropoffDist[ship->pos.x][ship->pos.y] <= 1) {
 		policy = EnemyPolicy::NONE;
 	}
 
@@ -122,18 +133,28 @@ std::vector<NavigationOption> Navigation::NavigationOptionsForShip(Ship* ship)
 		dirs.push_back(Direction::STILL);
 	}
 
+	Cell& c = game_map->GetCell(target);
+	AreaInfo& info_3 = c.near_info[3];
+
 	for (const Direction direction : dirs) {
 		Position pp = ship->pos.DirectionalOffset(direction);
 
 		//out::Log("Ship " + std::to_string(ship->ship_id) + " option " + std::to_string(static_cast<int>(direction)) + " at " + pp.str() + "   policy: " + std::to_string(static_cast<int>(policy)));
-
+		
 		/// --------------------------------------------------------------
-		Cell& c = game_map->GetCell(target);
 		Cell& moving_cell = game_map->GetCell(pp);
 		bool hit_free = IsHitFree(pp);
+		EnemyPolicy policy_cell = policy;
+
+		if (policy == EnemyPolicy::NONE) {
+			// DODGE
+			if (moving_cell.near_info[1].num_enemy_ships > moving_cell.near_info[1].num_ally_ships_not_dropping || ship->halite > 800) {
+				policy_cell = EnemyPolicy::DODGE;
+			}
+		}
+
 		Ship* other_ship = moving_cell.ship_on_cell;
 		bool is_other_enemy = other_ship && other_ship->player_id != me.id;
-		AreaInfo& info_3 = c.near_info[3];
 		AreaInfo& moving_cell_info = moving_cell.near_info[3];
 
 		double optionCost = map.cells[pp.x][pp.y].ratio();
@@ -145,13 +166,19 @@ std::vector<NavigationOption> Navigation::NavigationOptionsForShip(Ship* ship)
 		if (hit_free) {
 			possibleOption = true;
 			if (moving_cell.enemy_reach_halite != -1) {
-				if (policy == EnemyPolicy::DODGE) {
-					optionCost += INF + (constants::MAX_HALITE - moving_cell.enemy_reach_halite);
+				if (policy_cell == EnemyPolicy::DODGE) {
+					optionCost += INF + 100 * moving_cell.halite + (constants::MAX_HALITE - moving_cell.enemy_reach_halite);
+				}
+				else {
+					// don't risk
+					if (moving_cell.halite > 300 && moving_cell.enemy_reach_halite < 300 && moving_cell.near_info[3].num_ally_ships == 1) {
+						optionCost += INF + 100 * moving_cell.halite + (constants::MAX_HALITE - moving_cell.enemy_reach_halite);
+					}
 				}
 			}
 		}
 		else {
-			if (is_other_enemy && policy == EnemyPolicy::ENGAGE && ship->task.type == TaskType::ATTACK && ship->task.position == pp) {
+			if (is_other_enemy && policy_cell == EnemyPolicy::ENGAGE && ship->task.type == TaskType::ATTACK && ship->task.position == pp) {
 				optionCost = 1;
 				possibleOption = true;
 			}
@@ -337,7 +364,7 @@ void Navigation::Navigate(std::vector<Ship*> ships, std::vector<Command>& comman
 	if (possible_options.size() > ships.size()) {
 		// Explore
 		int T = 0;
-		int max = possible_options.size() * 100;
+		int max = possible_options.size() * 10;
 
 #ifndef HALITE_LOCAL
 		max = INF;

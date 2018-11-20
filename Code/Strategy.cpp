@@ -293,7 +293,7 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 						game->map->halite_remaining / (double)game->total_halite < 0.15 ||
 						(me.ships.size() > 20 && me.ships.size() >= 2 * total_enemy_ships) ||
 						(c.near_info[4].num_ally_ships > 3 && c.near_info[5].num_ally_ships > 3 * c.near_info[5].num_enemy_ships) ||
-						(c.near_info[5].num_ally_ships > c.near_info[5].num_enemy_ships && c.halite > 650)) {
+						(c.near_info[5].num_ally_ships > c.near_info[5].num_enemy_ships && c.halite > 650 && c.near_info[5].num_ally_ships > 4)) {
 					if (c.near_info[4].num_ally_ships_not_dropping + 1 > c.near_info[4].num_enemy_ships && // is safe
 						ss.second->halite > 200) { // is worth
 
@@ -359,38 +359,9 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 						double priority = 0;
 						double profit = 0, time_cost = 0;
 
-						if(game->num_players == 2 && game->map->width <= 48) { // 32, 40, 48
+						bool def = game->map->width >= 48;
 
-							// Testing
-							/*
-							if (game->num_players == 2 && game->map->width == 32) {
-								time_cost = 0;
-								profit = 0;
-								time_cost += dist_to_cell * features::a;
-								time_cost += dist_to_dropoff * features::b;
-								profit += c.halite * features::c;
-								profit += s->halite * features::d;
-								profit += (c.near_info[4].avgHalite / game->map->map_avg_halite) * features::e;
-								if (c.inspiration && constants::INSPIRATION_ENABLED) {
-									profit *= 1 + constants::INSPIRED_BONUS_MULTIPLIER;
-								}
-
-								profit += c.near_info[4].num_ally_ships_not_dropping * features::f;
-								profit += c.near_info[4].num_enemy_ships * features::g;
-							}*/
-
-							double k = c.halite - game->map->map_avg_halite;
-							if (c.inspiration && constants::INSPIRATION_ENABLED) {
-								k *= 1 + constants::INSPIRED_BONUS_MULTIPLIER;
-							}
-							k += c.near_info[4].num_ally_ships_not_dropping * features::e;
-							k += c.near_info[4].num_enemy_ships * features::f;
-
-							double d = powf(k / (double)constants::MAX_HALITE + features::c, features::d); // 0.075   0.55
-							profit = d;
-							time_cost = dist_to_cell * features::a + dist_to_dropoff * features::b; // 4.2   1.5
-							time_cost = time_cost;
-						} else {
+						if (def) {
 							profit = c.halite + (c.near_info[4].avgHalite / game->map->map_avg_halite) * 100.0;
 
 							time_cost = dist_to_cell * 4.0 + dist_to_dropoff * 0.8;
@@ -404,6 +375,21 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 							else {
 								profit -= std::min(c.near_info[4].num_ally_ships_not_dropping, 6) * 20;
 							}
+						}
+						else {
+							time_cost = 0;
+							profit = 0;
+							time_cost += dist_to_cell * features::a;
+							time_cost += dist_to_dropoff * features::b;
+							profit += c.halite * features::c;
+							profit += s->halite * features::d;
+							profit += (c.near_info[4].avgHalite / game->map->map_avg_halite) * features::e;
+							if (c.inspiration && constants::INSPIRATION_ENABLED) {
+								profit *= 1 + constants::INSPIRED_BONUS_MULTIPLIER;
+							}
+
+							profit += c.near_info[4].num_ally_ships_not_dropping * features::f;
+							profit += c.near_info[4].num_enemy_ships * features::g;
 						}
 
 						priority = profit / time_cost;
@@ -469,17 +455,6 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 		s->task.priority = s->halite;
 
 		shipsToNavigate.push_back(s);
-	}
-
-	/* CHECK FOR DANGER */
-	for (Ship* s : shipsToNavigate) {
-		// dodge if necessary
-		if (s->task.policy == EnemyPolicy::NONE) {
-			Cell& c = game->map->GetCell(s->pos);
-			if (c.near_info[3].num_enemy_ships > c.near_info[3].num_ally_ships - 1 || s->halite > 600) {
-				s->task.policy = EnemyPolicy::DODGE;
-			}
-		}
 	}
 }
  
