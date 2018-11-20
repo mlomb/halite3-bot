@@ -148,7 +148,7 @@ std::vector<NavigationOption> Navigation::NavigationOptionsForShip(Ship* ship)
 
 		if (policy == EnemyPolicy::NONE) {
 			// DODGE
-			if (moving_cell.near_info[1].num_enemy_ships > moving_cell.near_info[1].num_ally_ships_not_dropping || ship->halite > 800) {
+			if (moving_cell.near_info[1].num_enemy_ships >= moving_cell.near_info[1].num_ally_ships_not_dropping - 1 || ship->halite > 800) {
 				policy_cell = EnemyPolicy::DODGE;
 			}
 		}
@@ -160,12 +160,9 @@ std::vector<NavigationOption> Navigation::NavigationOptionsForShip(Ship* ship)
 		double optionCost = map.cells[pp.x][pp.y].ratio();
 		bool possibleOption = false;
 
-		int dist_2nd_enemy = moving_cell_info.enemy_ships_dist.size() >= 2 ? moving_cell_info.enemy_ships_dist[1].first : INF;
-		int dist_2nd_ally = moving_cell_info.ally_ships_not_dropping_dist.size() >= 2 ? moving_cell_info.ally_ships_not_dropping_dist[1].first : INF;
-
 		if (hit_free) {
 			possibleOption = true;
-			if (moving_cell.enemy_reach_halite != -1) {
+			if (moving_cell.enemy_reach_halite != -1 && (moving_cell.enemy_reach_halite < 800 || ship->dropping || moving_cell.near_info[3].num_ally_ships <= 3)) {
 				if (policy_cell == EnemyPolicy::DODGE) {
 					optionCost += INF + 100 * moving_cell.halite + (constants::MAX_HALITE - moving_cell.enemy_reach_halite);
 				}

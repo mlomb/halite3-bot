@@ -155,7 +155,7 @@ std::vector<Position> Strategy::BestDropoffSpots()
 						int distance_to_closest_dropoff = closestDropoffDist[x][y];
 						if (distance_to_closest_dropoff > std::ceil(constants::MAP_WIDTH * features::dropoff_map_distance)) {
 							AreaInfo& info = c.near_info[5];
-							if (info.num_ally_ships > 0 && info.num_ally_ships >= info.num_enemy_ships) {
+							if (info.num_ally_ships > 2 && info.num_ally_ships >= info.num_enemy_ships) {
 								if (info.avgHalite / game->map->map_avg_halite >= features::dropoff_avg_threshold) {
 									ratio = info.avgHalite / (distance_to_closest_dropoff * distance_to_closest_dropoff);
 								}
@@ -359,7 +359,7 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 						double priority = 0;
 						double profit = 0, time_cost = 0;
 
-						bool def = game->map->width >= 48;
+						bool def = !(game->map->width <= 40 && game->num_players == 4);
 
 						if (def) {
 							profit = c.halite + (c.near_info[4].avgHalite / game->map->map_avg_halite) * 100.0;
