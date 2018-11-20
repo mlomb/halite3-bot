@@ -128,8 +128,10 @@ void Map::CalculateNearInfo(Cell& c)
 						info.enemy_ships_dist.push_back(std::make_pair(d, it_cell.ship_on_cell));
 
 						if (d <= 1) {
-							if (c.enemy_reach_halite == -1 || it_cell.ship_on_cell->halite < c.enemy_reach_halite) {
-								c.enemy_reach_halite = it_cell.ship_on_cell->halite;
+							if (it_cell.dropoff_owned != my_id) {
+								if (c.enemy_reach_halite == -1 || it_cell.ship_on_cell->halite < c.enemy_reach_halite) {
+									c.enemy_reach_halite = it_cell.ship_on_cell->halite;
+								}
 							}
 						}
 					}
