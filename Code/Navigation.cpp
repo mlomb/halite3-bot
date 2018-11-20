@@ -146,12 +146,12 @@ std::vector<NavigationOption> Navigation::NavigationOptionsForShip(Ship* ship)
 		bool hit_free = IsHitFree(pp);
 		EnemyPolicy policy_cell = policy;
 
-		if (policy == EnemyPolicy::NONE) {
-			// DODGE
-			if (moving_cell.near_info[1].num_enemy_ships >= moving_cell.near_info[1].num_ally_ships_not_dropping - 1 || ship->halite > 800) {
-				policy_cell = EnemyPolicy::DODGE;
-			}
-		}
+		//if (policy == EnemyPolicy::NONE) {
+		//	// DODGE
+		//	if ((moving_cell.halite < 400 && moving_cell.near_info[1].num_enemy_ships >= moving_cell.near_info[1].num_ally_ships_not_dropping - 1) || ship->halite > 800) {
+		//		policy_cell = EnemyPolicy::DODGE;
+		//	}
+		//}
 
 		Ship* other_ship = moving_cell.ship_on_cell;
 		bool is_other_enemy = other_ship && other_ship->player_id != me.id;

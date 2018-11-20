@@ -419,15 +419,22 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 	});
 
 	// Assign mining
-	static bool mining_assigned[MAX_MAP_SIZE][MAX_MAP_SIZE];
+	static int mining_assigned[MAX_MAP_SIZE][MAX_MAP_SIZE];
 	for (int x = 0; x < constants::MAP_WIDTH; x++)
 		for (int y = 0; y < constants::MAP_HEIGHT; y++)
-			mining_assigned[x][y] = false;
+			mining_assigned[x][y] = 0;
 
 	for (Edge& e : edges) {
 		if (e.s->assigned) continue;
 
-		if (!mining_assigned[e.position.x][e.position.y]) {
+		Cell& c = game->map->GetCell(e.position);
+		int max_ships = 1;
+		if (c.halite > 300 && c.near_info[3].num_enemy_ships > 0) {
+			max_ships = c.halite / c.near_info[3].avgHalite;
+		}
+		max_ships = std::min(5, std::max(1, max_ships));
+
+		if (mining_assigned[e.position.x][e.position.y] <= max_ships) {
 			e.s->assigned = true;
 
 			e.s->task.position = e.position;
@@ -437,7 +444,7 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 
 			shipsToNavigate.push_back(e.s);
 
-			mining_assigned[e.position.x][e.position.y] = true;
+			mining_assigned[e.position.x][e.position.y]++;
 		}
 	}
 
