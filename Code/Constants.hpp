@@ -1,5 +1,8 @@
 #pragma once
 
+#include <unordered_map>
+#include <string>
+
 namespace constants {
 	/** The maximum amount of halite a ship can carry. */
 	extern int MAX_HALITE;
@@ -51,5 +54,12 @@ namespace features {
 	extern double ally_halite_less;
 	extern double halite_ratio_less;
 
+	extern double friendliness_drop_preservation;
+	extern double friendliness_dodge;
+	extern double friendliness_can_attack;
+	extern double friendliness_should_attack;
+
 	extern double a, b, c, d, e, f, g;
+
+	extern std::unordered_map<std::string, bool> combat;
 }

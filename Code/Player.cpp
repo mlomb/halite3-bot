@@ -36,8 +36,6 @@ void Player::Update(int num_ships, int num_dropoffs, int halite, Game* game)
 		s->halite = halite;
 		s->dead = false;
 
-		game->map->GetCell(pos).ship_on_cell = s;
-
 		this->carrying_halite += s->halite;
 	}
 

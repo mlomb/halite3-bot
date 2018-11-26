@@ -95,10 +95,50 @@ bool Navigation::IsHitFree(const Position pos)
 		   hits[pos.x][pos.y] == BlockedCell::GHOST;
 }
 
+extern EnemyPolicy GetMLPolicy(Ship* s, Position p);
+
+int halToKey(int halite) {
+	int r = std::ceil((double)halite / (1000.0 / 3.0));
+	r = std::max(1, std::min(3, r));
+	return r;
+}
+double calcFriendliness(Ship* s, Position p) {
+	Game* game = Game::Get();
+	Map* game_map = game->map;
+	Cell& cell = game_map->GetCell(p);
+
+	const int DISTANCES = 4; // 0, 1, 2, 3
+	double friendliness = 0;
+
+	for (int d = 0; d < DISTANCES; d++) { // Dx
+		// ALLY
+		for (auto& kv : cell.near_info[5].ally_ships_not_dropping_dist) {
+			if (kv.second == s) continue;
+			if (kv.first == d) {
+				double contribution = DISTANCES - d;
+				double i = 1.0 - ((double)kv.second->halite / (double)constants::MAX_HALITE);
+				friendliness += i * contribution;
+			}
+		}
+		// ENEMY
+		for (auto& kv : cell.near_info[5].enemy_ships_dist) {
+			if (kv.first == d) {
+				double contribution = DISTANCES - d;
+				double i = 1.0 - ((double)kv.second->halite / (double)constants::MAX_HALITE);
+				friendliness -= i * contribution;
+			}
+		}
+	}
+
+	return friendliness;
+}
+
 std::vector<NavigationOption> Navigation::NavigationOptionsForShip(Ship* ship)
 {
 	Player& me = game->GetMyPlayer();
 	Map* game_map = game->map;
+	static std::uniform_real_distribution<double> random_01(0.0, 1.0);
+	static std::mt19937_64& mersenne_twister = mt();
 
 	Cell& current_cell = game_map->GetCell(ship->pos);
 
@@ -111,9 +151,7 @@ std::vector<NavigationOption> Navigation::NavigationOptionsForShip(Ship* ship)
 		break;
 	case TaskType::DROP:
 		if (current_cell.halite > 300) {
-			//int closest_enemy = current_cell.near_info[5].enemy_ships_dist.size() > 0 ? current_cell.near_info[5].enemy_ships_dist[0].first : INF;
-			//int cloest_ally = current_cell.near_info[5].ally_ships_not_dropping_dist.size() > 1 ? current_cell.near_info[5].ally_ships_not_dropping_dist[1].first : INF;
-			if (current_cell.near_info[2].num_enemy_ships > 0 && current_cell.near_info[3].num_ally_ships_not_dropping > 0) {
+			if (calcFriendliness(ship, ship->pos) < features::friendliness_drop_preservation) {
 				target = ship->pos;
 			}
 		}
@@ -138,48 +176,53 @@ std::vector<NavigationOption> Navigation::NavigationOptionsForShip(Ship* ship)
 
 	for (const Direction direction : dirs) {
 		Position pp = ship->pos.DirectionalOffset(direction);
+		int dist_to_ship = direction == Direction::STILL ? 0 : 1;
 
 		//out::Log("Ship " + std::to_string(ship->ship_id) + " option " + std::to_string(static_cast<int>(direction)) + " at " + pp.str() + "   policy: " + std::to_string(static_cast<int>(policy)));
 		
 		/// --------------------------------------------------------------
 		Cell& moving_cell = game_map->GetCell(pp);
 		bool hit_free = IsHitFree(pp);
-		EnemyPolicy policy_cell = policy;
-
-		//if (policy == EnemyPolicy::NONE) {
-		//	// DODGE
-		//	if ((moving_cell.halite < 400 && moving_cell.near_info[1].num_enemy_ships >= moving_cell.near_info[1].num_ally_ships_not_dropping - 1) || ship->halite > 800) {
-		//		policy_cell = EnemyPolicy::DODGE;
-		//	}
-		//}
+		EnemyPolicy policy_cell = EnemyPolicy::NONE;// = moving_cell.enemy_reach_halite == -1 ? EnemyPolicy::NONE : GetMLPolicy(ship, pp);
 
 		Ship* other_ship = moving_cell.ship_on_cell;
 		bool is_other_enemy = other_ship && other_ship->player_id != me.id;
-		AreaInfo& moving_cell_info = moving_cell.near_info[3];
 
 		double optionCost = map.cells[pp.x][pp.y].ratio();
 		bool possibleOption = false;
 
+		double friendliness = calcFriendliness(ship, pp);
+
 		if (hit_free) {
 			possibleOption = true;
-			if (moving_cell.enemy_reach_halite != -1 && (moving_cell.enemy_reach_halite < 800 || ship->dropping || moving_cell.near_info[3].num_ally_ships <= 3)) {
-				if (policy_cell == EnemyPolicy::DODGE) {
-					optionCost += INF + 100 * moving_cell.halite + (constants::MAX_HALITE - moving_cell.enemy_reach_halite);
-				}
-				else {
-					// don't risk
-					if (moving_cell.halite > 300 && moving_cell.enemy_reach_halite < 300 && moving_cell.near_info[3].num_ally_ships == 1) {
-						optionCost += INF + 100 * moving_cell.halite + (constants::MAX_HALITE - moving_cell.enemy_reach_halite);
-					}
+			if (moving_cell.enemy_reach_halite != -1/* policy_cell == EnemyPolicy::DODGE*/) {
+
+				bool should_dodge = friendliness < features::friendliness_dodge; // 0.38
+
+				if (ship->halite >= Game::Get()->map->GetCell(pp).MoveCost())
+					friendliness += 0.1;
+				if(direction != Direction::STILL)
+					friendliness += 0.11;
+
+				if (should_dodge) {
+					optionCost += INF + (10000 - friendliness);
 				}
 			}
 		}
 		else {
-			if (is_other_enemy && policy_cell == EnemyPolicy::ENGAGE && ship->task.type == TaskType::ATTACK && ship->task.position == pp) {
-				optionCost = 1;
-				possibleOption = true;
+			if (is_other_enemy/*policy_cell == EnemyPolicy::ENGAGE*/) {
+				bool can_attack = friendliness > features::friendliness_can_attack; // 1.85
+
+				if (can_attack) {
+					possibleOption = true;
+
+					bool should_attack = friendliness > features::friendliness_should_attack; // 3.5
+					if(should_attack)
+						optionCost = 1 + ((double)ship->halite / (double)constants::MAX_HALITE);
+				}
 			}
 		}
+
 		/// --------------------------------------------------------------
 
 		if (possibleOption) {

@@ -35,5 +35,12 @@ namespace features {
 	double ally_halite_less;
 	double halite_ratio_less;
 
+	double friendliness_drop_preservation;
+	double friendliness_dodge;
+	double friendliness_can_attack;
+	double friendliness_should_attack;
+
 	double a, b, c, d, e, f, g;
+
+	std::unordered_map<std::string, bool> combat;
 }

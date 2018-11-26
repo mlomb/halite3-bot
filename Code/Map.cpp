@@ -67,6 +67,18 @@ void Map::Process()
 	for (auto& pp : game->players) {
 		for (auto& ss : pp.second.ships) {
 			GetCell(ss.second->pos).ship_on_cell = ss.second;
+
+			if (pp.first != game->my_id) {
+				std::vector<Direction> dirs = DIRECTIONS;
+				dirs.push_back(Direction::STILL);
+				for (Direction d : dirs) {
+					Position pd = ss.second->pos.DirectionalOffset(d);
+					Cell& c = GetCell(pd);
+					if (c.enemy_reach_halite == -1 || ss.second->halite < c.enemy_reach_halite) {
+						c.enemy_reach_halite = ss.second->halite;
+					}
+				}
+			}
 		}
 		for (Position d : pp.second.dropoffs) {
 			GetCell(d).dropoff_owned = pp.first;
@@ -126,14 +138,6 @@ void Map::CalculateNearInfo(Cell& c)
 					else {
 						info.num_enemy_ships++;
 						info.enemy_ships_dist.push_back(std::make_pair(d, it_cell.ship_on_cell));
-
-						if (d <= 1) {
-							if (it_cell.dropoff_owned != my_id) {
-								if (c.enemy_reach_halite == -1 || it_cell.ship_on_cell->halite < c.enemy_reach_halite) {
-									c.enemy_reach_halite = it_cell.ship_on_cell->halite;
-								}
-							}
-						}
 					}
 				}
 			}

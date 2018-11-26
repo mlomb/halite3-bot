@@ -30,6 +30,17 @@ const fdeep::model& GetMineModel() {
 	}
 }
 
+const fdeep::model& GetPolicyModel() {
+	try {
+		static const auto m = fdeep::load_model("Train/model-policy.json", true, out::Log);
+		return m;
+	}
+	catch (const std::exception& e) {
+		out::Log(std::string(e.what()));
+		throw e;
+	}
+}
+
 void appendVectorToFile(std::ofstream& file_handle, std::vector<float>& vec) {
 	std::string line = "[";
 	for (int i = 0; i < vec.size(); i++) {
@@ -41,6 +52,90 @@ void appendVectorToFile(std::ofstream& file_handle, std::vector<float>& vec) {
 
 	file_handle << line << "\n";
 }
+/*
+EnemyPolicy GetMLPolicy(Ship* s, Position p) {
+	Game* game = Game::Get();
+	Player& me = game->GetMyPlayer();
+	Cell& cell = game->map->GetCell(p);
+
+	static std::uniform_real_distribution<double> random_01(0.0, 1.0);
+	static std::mt19937_64& mersenne_twister = mt();
+	static struct stat buffer;
+	static bool model_available = (stat("Train/model-policy.json", &buffer) == 0);
+
+	EnemyPolicy e;
+	bool use_model = model_available && random_01(mersenne_twister) < 1.0 - 0.05;
+	Ship* other_ship = game->GetShipAt(p);
+	bool other_ship_enemy = other_ship && other_ship->player_id != game->my_id;
+
+	std::vector<float> vec_in = {
+		(float)((double)s->halite / (double)constants::MAX_HALITE), // halite en la nave
+		(float)std::min(2.0, (double)cell.halite / (double)constants::MAX_HALITE), // halite en la celda
+		(float)std::min(2.0, (double)cell.near_info[3].avgHalite / (double)constants::MAX_HALITE), // halite en la cercania
+		(float)(cell.enemy_reach_halite == -1 ? -1 : std::min(2.0, (double)cell.enemy_reach_halite / (double)constants::MAX_HALITE)),
+		(float)((other_ship && !other_ship_enemy) ? ((double)other_ship->halite / (double)constants::MAX_HALITE) : -1), // ally
+		(float)((other_ship &&  other_ship_enemy) ? ((double)other_ship->halite / (double)constants::MAX_HALITE) : -1), // enemy
+	};
+	int near_ships = 6;
+	for (int i = 1; i < near_ships + 1; i++) { // ally ships
+		// Skip first ally ship
+		if (i < cell.near_info[5].ally_ships_not_dropping_dist.size()) {
+			vec_in.push_back(cell.near_info[5].ally_ships_not_dropping_dist[i].first);
+		}
+		else {
+			vec_in.push_back(-1);
+		}
+	}
+	for (int i = 0; i < near_ships; i++) { // enemy ships
+		if (i < cell.near_info[5].enemy_ships_dist.size()) {
+			vec_in.push_back(cell.near_info[5].enemy_ships_dist[i].first);
+		}
+		else {
+			vec_in.push_back(-1);
+		}
+	}
+
+
+	if (use_model) {
+		fdeep::float_vec fv;
+		for (float& f : vec_in)
+			fv.push_back(f);
+
+		const auto result = GetPolicyModel().predict({
+			fdeep::tensor5(fdeep::shape5(1, 1, 1, 1, fv.size()), std::move(fv))
+		});
+
+		auto& v = (*result[0].as_vector());
+
+		out::Log("Model result: [" + std::to_string(v[0]) + ", " + std::to_string(v[1]) + ", " + std::to_string(v[1]) + "]");
+
+		if (v[0] > v[1]) e = EnemyPolicy::ENGAGE;
+		else e = EnemyPolicy::DODGE;
+	}
+	else {
+		double r = random_01(mersenne_twister);
+		if (r < 0.5) {
+			e = EnemyPolicy::ENGAGE;
+		}
+		else {
+			e = EnemyPolicy::DODGE;
+		}
+	}
+
+	// save
+	std::vector<float> vec_out = {
+		e == EnemyPolicy::ENGAGE ? 1.0f : 0.0f,
+		e == EnemyPolicy::DODGE ? 1.0f : 0.0f,
+	};
+
+	static std::ofstream f_in("in-" + std::to_string(Game::Get()->my_id) + ".vec");
+	static std::ofstream f_out("out-" + std::to_string(Game::Get()->my_id) + ".vec");
+	appendVectorToFile(f_in, vec_in);
+	appendVectorToFile(f_out, vec_out);
+
+	return e;
+}
+*/
 
 Strategy::Strategy(Game* game) {
 	this->game = game;
@@ -108,20 +203,20 @@ bool Strategy::ShouldSpawnShip()
 	switch (game->num_players) {
 	case 2:
 		switch (game->map->width) {
-		case 32: max = 60; break;
-		case 40: max = 62; break;
-		case 48: max = 65; break;
-		case 56: max = 68; break;
-		case 64: max = 70; break;
+		case 32: max = 0.60; break;
+		case 40: max = 0.62; break;
+		case 48: max = 0.65; break;
+		case 56: max = 0.68; break;
+		case 64: max = 0.70; break;
 		}
 		break;
 	case 4:
 		switch (game->map->width) {
-		case 32: max = 36; break;
-		case 40: max = 40; break;
-		case 48: max = 45; break;
-		case 56: max = 52; break;
-		case 64: max = 55; break;
+		case 32: max = 0.36; break;
+		case 40: max = 0.40; break;
+		case 48: max = 0.45; break;
+		case 56: max = 0.52; break;
+		case 64: max = 0.55; break;
 		}
 		break;
 	}
@@ -275,13 +370,14 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 	}
 
 	/* ATTACKS */
-	int total_enemy_ships = 0;
-	for (auto& pp : game->players) {
-		if (pp.first != me.id) {
-			total_enemy_ships += pp.second.ships.size();
+	if (false) {
+		int total_enemy_ships = 0;
+		for (auto& pp : game->players) {
+			if (pp.first != me.id) {
+				total_enemy_ships += pp.second.ships.size();
+			}
 		}
-	}
-	if (!game->strategy->allow_dropoff_collision) {
+		if (!game->strategy->allow_dropoff_collision) {
 			for (auto& pp : game->players) {
 				if (pp.first == me.id) continue;
 
@@ -294,29 +390,57 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 						(me.ships.size() > 20 && me.ships.size() >= 2 * total_enemy_ships) ||
 						(c.near_info[4].num_ally_ships > 3 && c.near_info[5].num_ally_ships > 3 * c.near_info[5].num_enemy_ships) ||
 						(c.near_info[5].num_ally_ships > c.near_info[5].num_enemy_ships && c.halite > 650 && c.near_info[5].num_ally_ships > 4)) {
-					if (c.near_info[4].num_ally_ships_not_dropping + 1 > c.near_info[4].num_enemy_ships && // is safe
-						ss.second->halite > 200) { // is worth
+						if (c.near_info[4].num_ally_ships_not_dropping + 1 > c.near_info[4].num_enemy_ships && // is safe
+							ss.second->halite > 200) { // is worth
 
-						// near ships
-						int num_assigned = 0;
-						for (auto& ns : c.near_info[5].ally_ships_not_dropping_dist) {
-							Ship* near_ship = ns.second;
-							if (ns.second->assigned) continue;
-							if (near_ship->halite > 750) {
-								continue;
+							// near ships
+							int num_assigned = 0;
+							for (auto& ns : c.near_info[5].ally_ships_not_dropping_dist) {
+								Ship* near_ship = ns.second;
+								if (ns.second->assigned) continue;
+								if (near_ship->halite > 750) {
+									continue;
+								}
+
+								near_ship->assigned = true;
+
+								near_ship->task.position = c.pos;
+								near_ship->task.type = TaskType::ATTACK;
+								near_ship->task.policy = EnemyPolicy::ENGAGE;
+								near_ship->task.priority = ss.second->halite;
+
+								shipsToNavigate.push_back(near_ship);
+								num_assigned++;
+								if (num_assigned >= 2) break;
 							}
-
-							near_ship->assigned = true;
-
-							near_ship->task.position = c.pos;
-							near_ship->task.type = TaskType::ATTACK;
-							near_ship->task.policy = EnemyPolicy::ENGAGE;
-							near_ship->task.priority = ss.second->halite;
-
-							shipsToNavigate.push_back(near_ship);
-							num_assigned++;
-							if (num_assigned >= 2) break;
 						}
+					}
+				}
+			}
+		}
+	}
+	else {
+		// v65
+		if (game->num_players == 2) {
+			// aggressiv on 2p only
+			for (auto& pp : game->players) {
+				if (pp.first == me.id) continue;
+
+				for (auto& ss : pp.second.ships) {
+					// For each enemy ship
+					Cell& c = game->map->GetCell(ss.second->pos);
+					if (c.near_info[4].num_ally_ships_not_dropping > c.near_info[4].num_enemy_ships) {
+						Ship* near_ship = me.ClosestShipAt(c.pos);
+						if (!near_ship || near_ship->assigned) continue;
+
+						near_ship->assigned = true;
+
+						near_ship->task.position = c.pos;
+						near_ship->task.type = TaskType::ATTACK;
+						near_ship->task.policy = EnemyPolicy::ENGAGE;
+						near_ship->task.priority = ss.second->halite;
+
+						shipsToNavigate.push_back(near_ship);
 					}
 				}
 			}
@@ -360,6 +484,7 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 						double profit = 0, time_cost = 0;
 
 						bool def = !(game->map->width <= 40 && game->num_players == 4);
+						def = true;
 
 						if (def) {
 							profit = c.halite + (c.near_info[4].avgHalite / game->map->map_avg_halite) * 100.0;
@@ -369,11 +494,11 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 								profit *= 1 + constants::INSPIRED_BONUS_MULTIPLIER;
 							}
 							if (game->num_players == 2) {
-								profit += std::min(c.near_info[4].num_ally_ships_not_dropping, 6) * 15;
-								profit -= std::min(c.near_info[4].num_enemy_ships, 6) * 25;
+								profit += c.near_info[4].num_ally_ships * 15;
+								profit -= c.near_info[4].num_enemy_ships * 25;
 							}
 							else {
-								profit -= std::min(c.near_info[4].num_ally_ships_not_dropping, 6) * 20;
+								profit -= c.near_info[4].num_ally_ships * 20;
 							}
 						}
 						else {
@@ -412,7 +537,7 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 
 	// Sort edges
 	std::sort(edges.begin(), edges.end(), [](const Edge& a, const Edge& b) {
-		if (std::fabs(a.priority - b.priority) < 0.0001)
+		if (std::fabs(a.priority - b.priority) < 0.05)
 			return a.time_travel < b.time_travel;
 		else
 			return a.priority > b.priority;
@@ -433,6 +558,7 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 			max_ships = c.halite / c.near_info[3].avgHalite;
 		}
 		max_ships = std::min(5, std::max(1, max_ships));
+		//max_ships = 1;
 
 		if (mining_assigned[e.position.x][e.position.y] <= max_ships) {
 			e.s->assigned = true;

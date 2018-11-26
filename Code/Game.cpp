@@ -19,7 +19,7 @@ void Game::Initialize(const std::string& bot_name)
 	json constants_json = json::parse(in::GetString());
 	LoadConstants(constants_json);
 	constants::RANDOM_SEED = rand();
-	mt().seed(constants::GAME_SEED + constants::RANDOM_SEED);
+	mt().seed(constants::GAME_SEED/* + constants::RANDOM_SEED*/);
 	in::GetSStream() >> num_players >> my_id;
 
 	out::Open(my_id);
@@ -75,9 +75,14 @@ void Game::LoadFeatures(json& features)
 	out::Log("Features:");
 	for (json::iterator it = features.begin(); it != features.end(); ++it) {
 		std::string key = it.key();
-		double value = it.value().get<double>();
-
-		out::Log("  " + key + " = " + std::to_string(value));
+		if (it.value().is_number()) {
+			double value = it.value().get<double>();
+			out::Log("  " + key + " = " + std::to_string(value));
+		}
+		else if (it.value().is_boolean()) {
+			bool value = it.value().get<bool>();
+			out::Log("  " + key + " = " + std::to_string(value));
+		}
 	}
 
 #define GET_FEATURE(name) if(features.find(#name) != features.end()) { features::name = features[#name]; }
@@ -104,6 +109,20 @@ void Game::LoadFeatures(json& features)
 	GET_FEATURE(e);
 	GET_FEATURE(f);
 	GET_FEATURE(g);
+
+	GET_FEATURE(friendliness_drop_preservation);
+	GET_FEATURE(friendliness_dodge);
+	GET_FEATURE(friendliness_can_attack);
+	GET_FEATURE(friendliness_should_attack);
+
+	for (json::iterator it = features.begin(); it != features.end(); ++it) {
+		std::string key = it.key();
+		if (key.length() > 2 && (key[0] == 'd' || key[0] == 'e') && key[1] == '/') {
+			if (it.value().is_boolean()) {
+				features::combat[key] = it.value().get<bool>();
+			}
+		}
+	}
 
 	out::Log("----------------------------");
 }

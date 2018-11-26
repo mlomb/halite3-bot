@@ -20,7 +20,7 @@ int main(int argc, char **argv) {
 #endif
 	Game game;
 
-	game.Initialize("mlomb-bot-v77");
+	game.Initialize("mlomb-bot-v82");
 	{
 		// Load features
 
@@ -32,7 +32,17 @@ int main(int argc, char **argv) {
 			"best_" + game_code + ".json",
 			"best_" + game_code_specific + ".json",
 		};
-		
+
+		// override with args
+		std::string json_str = "";
+		if (argc == 2) {
+			json_str = std::string(argv[1]);
+			if (json_str.substr(json_str.length() - 5) == ".json") {
+				files.push_back(json_str);
+				json_str = "";
+			}
+		}
+
 		for (std::string filename : files) {
 			try {
 				out::Log("Reading JSON file: " + filename);
@@ -52,8 +62,7 @@ int main(int argc, char **argv) {
 		}
 
 		// override with args
-		if (argc == 2) {
-			std::string json_str = std::string(argv[1]);
+		if (json_str.length() > 0) {
 			out::Log("Input JSON: " + json_str);
 			json json = json::parse(json_str);
 			out::Log("JSON parsed!");
