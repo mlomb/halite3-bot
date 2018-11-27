@@ -110,6 +110,7 @@ void Map::CalculateNearInfo(Cell& c)
 		info.num_ally_ships_not_dropping = 0;
 		info.enemy_ships_dist.clear();
 		info.ally_ships_not_dropping_dist.clear();
+		info.dropoffs_dist.clear();
 	}
 
 	for (int xx = -MAX_CELL_NEAR_AREA_INFO; xx <= MAX_CELL_NEAR_AREA_INFO; xx++) {
@@ -140,6 +141,9 @@ void Map::CalculateNearInfo(Cell& c)
 						info.enemy_ships_dist.push_back(std::make_pair(d, it_cell.ship_on_cell));
 					}
 				}
+				if (it_cell.dropoff_owned != -1) {
+					info.dropoffs_dist.push_back(std::make_pair(d, it_cell.dropoff_owned));
+				}
 			}
 		}
 	}
@@ -149,5 +153,6 @@ void Map::CalculateNearInfo(Cell& c)
 		info.avgHalite = info.halite / (double)info.cells;
 		std::sort(info.ally_ships_not_dropping_dist.begin(), info.ally_ships_not_dropping_dist.end());
 		std::sort(info.enemy_ships_dist.begin(), info.enemy_ships_dist.end());
+		std::sort(info.dropoffs_dist.begin(), info.dropoffs_dist.end());
 	}
 }

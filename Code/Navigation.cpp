@@ -102,36 +102,6 @@ int halToKey(int halite) {
 	r = std::max(1, std::min(3, r));
 	return r;
 }
-double calcFriendliness(Ship* s, Position p) {
-	Game* game = Game::Get();
-	Map* game_map = game->map;
-	Cell& cell = game_map->GetCell(p);
-
-	const int DISTANCES = 4; // 0, 1, 2, 3
-	double friendliness = 0;
-
-	for (int d = 0; d < DISTANCES; d++) { // Dx
-		// ALLY
-		for (auto& kv : cell.near_info[5].ally_ships_not_dropping_dist) {
-			if (kv.second == s) continue;
-			if (kv.first == d) {
-				double contribution = DISTANCES - d;
-				double i = 1.0 - ((double)kv.second->halite / (double)constants::MAX_HALITE);
-				friendliness += i * contribution;
-			}
-		}
-		// ENEMY
-		for (auto& kv : cell.near_info[5].enemy_ships_dist) {
-			if (kv.first == d) {
-				double contribution = DISTANCES - d;
-				double i = 1.0 - ((double)kv.second->halite / (double)constants::MAX_HALITE);
-				friendliness -= i * contribution;
-			}
-		}
-	}
-
-	return friendliness;
-}
 
 std::vector<NavigationOption> Navigation::NavigationOptionsForShip(Ship* ship)
 {
@@ -151,7 +121,7 @@ std::vector<NavigationOption> Navigation::NavigationOptionsForShip(Ship* ship)
 		break;
 	case TaskType::DROP:
 		if (current_cell.halite > 300) {
-			if (calcFriendliness(ship, ship->pos) < features::friendliness_drop_preservation) {
+			if (game->strategy->CalcFriendliness(ship, ship->pos) < features::friendliness_drop_preservation) {
 				target = ship->pos;
 			}
 		}
@@ -191,7 +161,7 @@ std::vector<NavigationOption> Navigation::NavigationOptionsForShip(Ship* ship)
 		double optionCost = map.cells[pp.x][pp.y].ratio();
 		bool possibleOption = false;
 
-		double friendliness = calcFriendliness(ship, pp);
+		double friendliness = game->strategy->CalcFriendliness(ship, pp);
 
 		if (hit_free) {
 			possibleOption = true;

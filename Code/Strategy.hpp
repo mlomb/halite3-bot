@@ -22,6 +22,7 @@ public:
 	void AssignTasks(std::vector<Command>& commands);
 	void Execute(std::vector<Command>& commands);
 
+	double CalcFriendliness(Ship*, Position p);
 	std::vector<Position> BestDropoffSpots();
 	bool ShouldSpawnShip();
 

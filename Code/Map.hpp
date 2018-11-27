@@ -17,8 +17,9 @@ struct AreaInfo {
 	int num_ally_ships;
 	int num_enemy_ships;
 	int num_ally_ships_not_dropping;
-	std::vector<std::pair<int, Ship*>> enemy_ships_dist;
-	std::vector<std::pair<int, Ship*>> ally_ships_not_dropping_dist;
+	std::vector<std::pair<int, Ship*>> enemy_ships_dist; // distance, ship
+	std::vector<std::pair<int, Ship*>> ally_ships_not_dropping_dist; // distance, ship
+	std::vector<std::pair<int, int>> dropoffs_dist; // distance, owner_id
 };
 
 struct Cell {

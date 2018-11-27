@@ -276,6 +276,45 @@ std::vector<Position> Strategy::BestDropoffSpots()
 	return dropoffs;
 }
 
+double Strategy::CalcFriendliness(Ship* s, Position p) {
+	Game* game = Game::Get();
+	Map* game_map = game->map;
+	Cell& cell = game_map->GetCell(p);
+
+	const int DISTANCES = 4; // 0, 1, 2, 3
+	double friendliness = 0;
+
+	for (int d = 0; d < DISTANCES; d++) { // Dx
+										  // ALLY
+		for (auto& kv : cell.near_info[5].ally_ships_not_dropping_dist) {
+			if (kv.second == s) continue;
+			if (kv.first == d) {
+				double contribution = DISTANCES - d;
+				double i = 1.0 - ((double)kv.second->halite / (double)constants::MAX_HALITE);
+				friendliness += i * contribution;
+			}
+		}
+		// ENEMY
+		for (auto& kv : cell.near_info[5].enemy_ships_dist) {
+			if (kv.first == d) {
+				double contribution = DISTANCES - d;
+				double i = 1.0 - ((double)kv.second->halite / (double)constants::MAX_HALITE);
+				friendliness -= i * contribution;
+			}
+		}
+		// Ally Dropoffs are like ships with 0 halite
+		for (auto& kv : cell.near_info[5].dropoffs_dist) {
+			if (kv.first == d && kv.second == game->my_id) {
+				double contribution = DISTANCES - d;
+				double i = 1.0;
+				friendliness += i * contribution;
+			}
+		}
+	}
+
+	return friendliness;
+}
+
 void Strategy::AssignTasks(std::vector<Command>& commands)
 {
 	reserved_halite = 0;
@@ -331,7 +370,7 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 		dropoff_ship->task.policy = game->map->GetCell(dropoff_spot).halite > 3000 ? EnemyPolicy::ENGAGE : EnemyPolicy::DODGE;
 		dropoff_ship->task.priority = dropoff_ship->halite;
 
-		reserved_halite += constants::DROPOFF_COST - dropoff_ship->halite - game->map->GetCell(dropoff_spot).halite;
+		reserved_halite += std::max(constants::DROPOFF_COST - dropoff_ship->halite - game->map->GetCell(dropoff_spot).halite, 0);
 
 		shipsToNavigate.push_back(dropoff_ship);
 	}
@@ -370,78 +409,26 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 	}
 
 	/* ATTACKS */
-	if (false) {
-		int total_enemy_ships = 0;
+	if(!game->strategy->allow_dropoff_collision){
 		for (auto& pp : game->players) {
-			if (pp.first != me.id) {
-				total_enemy_ships += pp.second.ships.size();
-			}
-		}
-		if (!game->strategy->allow_dropoff_collision) {
-			for (auto& pp : game->players) {
-				if (pp.first == me.id) continue;
+			if (pp.first == me.id) continue;
 
-				for (auto& ss : pp.second.ships) {
-					// For each enemy ship
-					Cell& c = game->map->GetCell(ss.second->pos);
+			for (auto& ss : pp.second.ships) {
+				// For each enemy ship
+				Cell& c = game->map->GetCell(ss.second->pos);
+				double friendliness = CalcFriendliness(nullptr, ss.second->pos);
+				if (friendliness > features::friendliness_should_attack) {
+					Ship* near_ship = me.ClosestShipAt(c.pos);
+					if (!near_ship || near_ship->assigned) continue;
 
-					if (game->map->map_avg_halite <= 15 ||
-						game->map->halite_remaining / (double)game->total_halite < 0.15 ||
-						(me.ships.size() > 20 && me.ships.size() >= 2 * total_enemy_ships) ||
-						(c.near_info[4].num_ally_ships > 3 && c.near_info[5].num_ally_ships > 3 * c.near_info[5].num_enemy_ships) ||
-						(c.near_info[5].num_ally_ships > c.near_info[5].num_enemy_ships && c.halite > 650 && c.near_info[5].num_ally_ships > 4)) {
-						if (c.near_info[4].num_ally_ships_not_dropping + 1 > c.near_info[4].num_enemy_ships && // is safe
-							ss.second->halite > 200) { // is worth
+					near_ship->assigned = true;
 
-							// near ships
-							int num_assigned = 0;
-							for (auto& ns : c.near_info[5].ally_ships_not_dropping_dist) {
-								Ship* near_ship = ns.second;
-								if (ns.second->assigned) continue;
-								if (near_ship->halite > 750) {
-									continue;
-								}
+					near_ship->task.position = c.pos;
+					near_ship->task.type = TaskType::ATTACK;
+					near_ship->task.policy = EnemyPolicy::ENGAGE;
+					near_ship->task.priority = ss.second->halite;
 
-								near_ship->assigned = true;
-
-								near_ship->task.position = c.pos;
-								near_ship->task.type = TaskType::ATTACK;
-								near_ship->task.policy = EnemyPolicy::ENGAGE;
-								near_ship->task.priority = ss.second->halite;
-
-								shipsToNavigate.push_back(near_ship);
-								num_assigned++;
-								if (num_assigned >= 2) break;
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-	else {
-		// v65
-		if (game->num_players == 2) {
-			// aggressiv on 2p only
-			for (auto& pp : game->players) {
-				if (pp.first == me.id) continue;
-
-				for (auto& ss : pp.second.ships) {
-					// For each enemy ship
-					Cell& c = game->map->GetCell(ss.second->pos);
-					if (c.near_info[4].num_ally_ships_not_dropping > c.near_info[4].num_enemy_ships) {
-						Ship* near_ship = me.ClosestShipAt(c.pos);
-						if (!near_ship || near_ship->assigned) continue;
-
-						near_ship->assigned = true;
-
-						near_ship->task.position = c.pos;
-						near_ship->task.type = TaskType::ATTACK;
-						near_ship->task.policy = EnemyPolicy::ENGAGE;
-						near_ship->task.priority = ss.second->halite;
-
-						shipsToNavigate.push_back(near_ship);
-					}
+					shipsToNavigate.push_back(near_ship);
 				}
 			}
 		}
@@ -476,7 +463,8 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 				if (!game->IsDropoff(p)) {
 					Cell& c = game->map->GetCell(p);
 
-					if (c.halite > threshold) {
+					double friendliness = CalcFriendliness(nullptr, p);
+					if (c.halite > threshold && friendliness > features::friendliness_mine_cell) { // -0.5
 						int dist_to_cell = s->pos.ToroidalDistanceTo(p);
 						int dist_to_dropoff = closestDropoffDist[p.x][p.y];
 
@@ -553,12 +541,14 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 		if (e.s->assigned) continue;
 
 		Cell& c = game->map->GetCell(e.position);
+
 		int max_ships = 1;
+		/*
 		if (c.halite > 300 && c.near_info[3].num_enemy_ships > 0) {
-			max_ships = c.halite / c.near_info[3].avgHalite;
+			max_ships = c.halite / (c.near_info[3].avgHalite * 2);
 		}
-		max_ships = std::min(5, std::max(1, max_ships));
-		//max_ships = 1;
+		max_ships = std::min(2, std::max(1, max_ships));
+		*/
 
 		if (mining_assigned[e.position.x][e.position.y] <= max_ships) {
 			e.s->assigned = true;
@@ -603,13 +593,13 @@ void Strategy::Execute(std::vector<Command>& commands)
 	navigation->Navigate(shipsToNavigate, commands);
 
 	//------------------------------- SHIP SPAWNING
-	if (!allow_dropoff_collision &&
-		game->CanSpawnShip(reserved_halite) &&
-		navigation->IsHitFree(me.shipyard_position)) {
-		bool spawn_ship = ShouldSpawnShip();
-		if(spawn_ship)
-			commands.push_back(SpawnCommand());
-		out::Log("We can spawn a ship. Spawned? " + std::to_string(spawn_ship));
+	if (!allow_dropoff_collision && navigation->IsHitFree(me.shipyard_position)) {
+		if (game->CanSpawnShip(reserved_halite)) {
+			bool spawn_ship = ShouldSpawnShip();
+			if (spawn_ship)
+				commands.push_back(SpawnCommand());
+			out::Log("We can spawn a ship. Spawned? " + std::to_string(spawn_ship));
+		}
 	}
 }
 

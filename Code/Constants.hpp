@@ -58,6 +58,7 @@ namespace features {
 	extern double friendliness_dodge;
 	extern double friendliness_can_attack;
 	extern double friendliness_should_attack;
+	extern double friendliness_mine_cell;
 
 	extern double a, b, c, d, e, f, g;
 

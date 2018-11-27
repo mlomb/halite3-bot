@@ -39,6 +39,7 @@ namespace features {
 	double friendliness_dodge;
 	double friendliness_can_attack;
 	double friendliness_should_attack;
+	double friendliness_mine_cell;
 
 	double a, b, c, d, e, f, g;
 

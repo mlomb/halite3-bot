@@ -114,6 +114,7 @@ void Game::LoadFeatures(json& features)
 	GET_FEATURE(friendliness_dodge);
 	GET_FEATURE(friendliness_can_attack);
 	GET_FEATURE(friendliness_should_attack);
+	GET_FEATURE(friendliness_mine_cell);
 
 	for (json::iterator it = features.begin(); it != features.end(); ++it) {
 		std::string key = it.key();
