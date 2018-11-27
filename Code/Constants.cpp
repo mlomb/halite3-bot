@@ -20,20 +20,9 @@ namespace constants {
 }
 
 namespace features {
-	double time_cost_dist_target;
-	double time_cost_dist_dropoff;
-	double time_cost_mining;
-
 	double dropoff_ships_needed;
 	double dropoff_map_distance;
 	double dropoff_avg_threshold;
-
-	double attack_mult;
-	double enemy_halite_worth;
-	double min_ally_ships_near;
-	double ally_enemy_ratio;
-	double ally_halite_less;
-	double halite_ratio_less;
 
 	double friendliness_drop_preservation;
 	double friendliness_dodge;
@@ -41,7 +30,6 @@ namespace features {
 	double friendliness_should_attack;
 	double friendliness_mine_cell;
 
+	// For testing
 	double a, b, c, d, e, f, g;
-
-	std::unordered_map<std::string, bool> combat;
 }

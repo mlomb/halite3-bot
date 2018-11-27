@@ -87,20 +87,15 @@ void Game::LoadFeatures(json& features)
 
 #define GET_FEATURE(name) if(features.find(#name) != features.end()) { features::name = features[#name]; }
 
-	GET_FEATURE(time_cost_dist_target);
-	GET_FEATURE(time_cost_dist_dropoff);
-	GET_FEATURE(time_cost_mining);
-
 	GET_FEATURE(dropoff_ships_needed);
 	GET_FEATURE(dropoff_map_distance);
 	GET_FEATURE(dropoff_avg_threshold);
 
-	GET_FEATURE(attack_mult);
-	GET_FEATURE(enemy_halite_worth);
-	GET_FEATURE(min_ally_ships_near);
-	GET_FEATURE(ally_enemy_ratio);
-	GET_FEATURE(ally_halite_less);
-	GET_FEATURE(halite_ratio_less);
+	GET_FEATURE(friendliness_drop_preservation);
+	GET_FEATURE(friendliness_dodge);
+	GET_FEATURE(friendliness_can_attack);
+	GET_FEATURE(friendliness_should_attack);
+	GET_FEATURE(friendliness_mine_cell);
 
 	GET_FEATURE(a);
 	GET_FEATURE(b);
@@ -109,23 +104,6 @@ void Game::LoadFeatures(json& features)
 	GET_FEATURE(e);
 	GET_FEATURE(f);
 	GET_FEATURE(g);
-
-	GET_FEATURE(friendliness_drop_preservation);
-	GET_FEATURE(friendliness_dodge);
-	GET_FEATURE(friendliness_can_attack);
-	GET_FEATURE(friendliness_should_attack);
-	GET_FEATURE(friendliness_mine_cell);
-
-	for (json::iterator it = features.begin(); it != features.end(); ++it) {
-		std::string key = it.key();
-		if (key.length() > 2 && (key[0] == 'd' || key[0] == 'e') && key[1] == '/') {
-			if (it.value().is_boolean()) {
-				features::combat[key] = it.value().get<bool>();
-			}
-		}
-	}
-
-	out::Log("----------------------------");
 }
 
 void Game::Play()

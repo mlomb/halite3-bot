@@ -122,3 +122,6 @@ struct ShipTask {
 };
 
 std::mt19937_64& mt();
+std::uniform_real_distribution<double> rand_01();
+double GetRandom01();
+void SetRandom01Seed(long long seed);

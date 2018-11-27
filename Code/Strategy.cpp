@@ -7,136 +7,6 @@
 
 const int DROP_THRESHOLD = 970;
 
-// Models
-const fdeep::model& GetSpawnShipModel() {
-	try {
-		int num_players = Game::Get()->num_players;
-		static const auto m = fdeep::load_model("model-ship-spawn-" + std::to_string(num_players) + "p.json", true, out::Log);
-		return m;
-	}
-	catch (const std::exception& e) {
-		out::Log(std::string(e.what()));
-		throw e;
-	}
-}
-const fdeep::model& GetMineModel() {
-	try {
-		static const auto m = fdeep::load_model("Train/model-mine.json", true, out::Log);
-		return m;
-	}
-	catch (const std::exception& e) {
-		out::Log(std::string(e.what()));
-		throw e;
-	}
-}
-
-const fdeep::model& GetPolicyModel() {
-	try {
-		static const auto m = fdeep::load_model("Train/model-policy.json", true, out::Log);
-		return m;
-	}
-	catch (const std::exception& e) {
-		out::Log(std::string(e.what()));
-		throw e;
-	}
-}
-
-void appendVectorToFile(std::ofstream& file_handle, std::vector<float>& vec) {
-	std::string line = "[";
-	for (int i = 0; i < vec.size(); i++) {
-		if (i)
-			line += ",";
-		line += std::to_string(vec[i]);
-	}
-	line += "]";
-
-	file_handle << line << "\n";
-}
-/*
-EnemyPolicy GetMLPolicy(Ship* s, Position p) {
-	Game* game = Game::Get();
-	Player& me = game->GetMyPlayer();
-	Cell& cell = game->map->GetCell(p);
-
-	static std::uniform_real_distribution<double> random_01(0.0, 1.0);
-	static std::mt19937_64& mersenne_twister = mt();
-	static struct stat buffer;
-	static bool model_available = (stat("Train/model-policy.json", &buffer) == 0);
-
-	EnemyPolicy e;
-	bool use_model = model_available && random_01(mersenne_twister) < 1.0 - 0.05;
-	Ship* other_ship = game->GetShipAt(p);
-	bool other_ship_enemy = other_ship && other_ship->player_id != game->my_id;
-
-	std::vector<float> vec_in = {
-		(float)((double)s->halite / (double)constants::MAX_HALITE), // halite en la nave
-		(float)std::min(2.0, (double)cell.halite / (double)constants::MAX_HALITE), // halite en la celda
-		(float)std::min(2.0, (double)cell.near_info[3].avgHalite / (double)constants::MAX_HALITE), // halite en la cercania
-		(float)(cell.enemy_reach_halite == -1 ? -1 : std::min(2.0, (double)cell.enemy_reach_halite / (double)constants::MAX_HALITE)),
-		(float)((other_ship && !other_ship_enemy) ? ((double)other_ship->halite / (double)constants::MAX_HALITE) : -1), // ally
-		(float)((other_ship &&  other_ship_enemy) ? ((double)other_ship->halite / (double)constants::MAX_HALITE) : -1), // enemy
-	};
-	int near_ships = 6;
-	for (int i = 1; i < near_ships + 1; i++) { // ally ships
-		// Skip first ally ship
-		if (i < cell.near_info[5].ally_ships_not_dropping_dist.size()) {
-			vec_in.push_back(cell.near_info[5].ally_ships_not_dropping_dist[i].first);
-		}
-		else {
-			vec_in.push_back(-1);
-		}
-	}
-	for (int i = 0; i < near_ships; i++) { // enemy ships
-		if (i < cell.near_info[5].enemy_ships_dist.size()) {
-			vec_in.push_back(cell.near_info[5].enemy_ships_dist[i].first);
-		}
-		else {
-			vec_in.push_back(-1);
-		}
-	}
-
-
-	if (use_model) {
-		fdeep::float_vec fv;
-		for (float& f : vec_in)
-			fv.push_back(f);
-
-		const auto result = GetPolicyModel().predict({
-			fdeep::tensor5(fdeep::shape5(1, 1, 1, 1, fv.size()), std::move(fv))
-		});
-
-		auto& v = (*result[0].as_vector());
-
-		out::Log("Model result: [" + std::to_string(v[0]) + ", " + std::to_string(v[1]) + ", " + std::to_string(v[1]) + "]");
-
-		if (v[0] > v[1]) e = EnemyPolicy::ENGAGE;
-		else e = EnemyPolicy::DODGE;
-	}
-	else {
-		double r = random_01(mersenne_twister);
-		if (r < 0.5) {
-			e = EnemyPolicy::ENGAGE;
-		}
-		else {
-			e = EnemyPolicy::DODGE;
-		}
-	}
-
-	// save
-	std::vector<float> vec_out = {
-		e == EnemyPolicy::ENGAGE ? 1.0f : 0.0f,
-		e == EnemyPolicy::DODGE ? 1.0f : 0.0f,
-	};
-
-	static std::ofstream f_in("in-" + std::to_string(Game::Get()->my_id) + ".vec");
-	static std::ofstream f_out("out-" + std::to_string(Game::Get()->my_id) + ".vec");
-	appendVectorToFile(f_in, vec_in);
-	appendVectorToFile(f_out, vec_out);
-
-	return e;
-}
-*/
-
 Strategy::Strategy(Game* game) {
 	this->game = game;
 	this->navigation = new Navigation(this);
@@ -144,7 +14,7 @@ Strategy::Strategy(Game* game) {
 
 void Strategy::Initialize()
 {
-	GetSpawnShipModel();
+	// Load Models?
 }
 
 bool Strategy::ShouldSpawnShip()
@@ -161,27 +31,6 @@ bool Strategy::ShouldSpawnShip()
 			enemy_ships += pp.second.ships.size();
 		}
 	}
-
-	/*
-	/// ML
-	const auto result = GetSpawnShipModel().predict({
-		fdeep::tensor5(fdeep::shape5(1, 1, 1, 1, 7),{
-			(float)constants::MAX_TURNS - game->turn,
-			(float)game->map->width * game->map->height,
-			(float)game->map->halite_remaining,
-			(float)my_halite,
-			(float)my_ships,
-			(float)enemy_halite,
-			(float)enemy_ships
-		})
-	});
-
-	// TODO Check this
-	bool spawn_ship = (*result[0].as_vector())[0] > 0.9;
-
-	return spawn_ship;
-	*/
-
 
 	// HARD MAX TURNS
 	if (game->turn >= 0.8 * constants::MAX_TURNS)
@@ -450,9 +299,6 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 	// Create mining edges
 	double threshold = std::min(35.0, game->map->map_avg_halite * 0.8);
 
-	std::uniform_real_distribution<double> random_01(0.0, 1.0);
-	std::mt19937_64& mersenne_twister = mt();
-
 	for (auto& sp : me.ships) {
 		Ship* s = sp.second;
 		if (s->assigned) continue;
@@ -471,39 +317,21 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 						double priority = 0;
 						double profit = 0, time_cost = 0;
 
-						bool def = !(game->map->width <= 40 && game->num_players == 4);
-						def = true;
+						/// --------------------
+						profit = c.halite + (c.near_info[4].avgHalite / game->map->map_avg_halite) * 100.0;
 
-						if (def) {
-							profit = c.halite + (c.near_info[4].avgHalite / game->map->map_avg_halite) * 100.0;
-
-							time_cost = dist_to_cell * 4.0 + dist_to_dropoff * 0.8;
-							if (c.inspiration && constants::INSPIRATION_ENABLED) {
-								profit *= 1 + constants::INSPIRED_BONUS_MULTIPLIER;
-							}
-							if (game->num_players == 2) {
-								profit += c.near_info[4].num_ally_ships * 15;
-								profit -= c.near_info[4].num_enemy_ships * 25;
-							}
-							else {
-								profit -= c.near_info[4].num_ally_ships * 20;
-							}
+						time_cost = dist_to_cell * 4.0 + dist_to_dropoff * 0.8;
+						if (c.inspiration && constants::INSPIRATION_ENABLED) {
+							profit *= 1 + constants::INSPIRED_BONUS_MULTIPLIER;
+						}
+						if (game->num_players == 2) {
+							profit += c.near_info[4].num_ally_ships * 15;
+							profit -= c.near_info[4].num_enemy_ships * 25;
 						}
 						else {
-							time_cost = 0;
-							profit = 0;
-							time_cost += dist_to_cell * features::a;
-							time_cost += dist_to_dropoff * features::b;
-							profit += c.halite * features::c;
-							profit += s->halite * features::d;
-							profit += (c.near_info[4].avgHalite / game->map->map_avg_halite) * features::e;
-							if (c.inspiration && constants::INSPIRATION_ENABLED) {
-								profit *= 1 + constants::INSPIRED_BONUS_MULTIPLIER;
-							}
-
-							profit += c.near_info[4].num_ally_ships_not_dropping * features::f;
-							profit += c.near_info[4].num_enemy_ships * features::g;
+							profit -= c.near_info[4].num_ally_ships * 20;
 						}
+						/// --------------------
 
 						priority = profit / time_cost;
 

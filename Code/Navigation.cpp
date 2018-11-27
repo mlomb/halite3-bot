@@ -95,40 +95,36 @@ bool Navigation::IsHitFree(const Position pos)
 		   hits[pos.x][pos.y] == BlockedCell::GHOST;
 }
 
-extern EnemyPolicy GetMLPolicy(Ship* s, Position p);
-
-int halToKey(int halite) {
-	int r = std::ceil((double)halite / (1000.0 / 3.0));
-	r = std::max(1, std::min(3, r));
-	return r;
-}
-
 std::vector<NavigationOption> Navigation::NavigationOptionsForShip(Ship* ship)
 {
 	Player& me = game->GetMyPlayer();
 	Map* game_map = game->map;
-	static std::uniform_real_distribution<double> random_01(0.0, 1.0);
-	static std::mt19937_64& mersenne_twister = mt();
 
 	Cell& current_cell = game_map->GetCell(ship->pos);
 
 	Position target = ship->task.position;
-	EnemyPolicy policy = ship->task.policy;
 
 	switch (ship->task.type) {
 	case TaskType::NONE:
 		target = ship->pos;
 		break;
 	case TaskType::DROP:
-		if (current_cell.halite > 300) {
-			if (game->strategy->CalcFriendliness(ship, ship->pos) < features::friendliness_drop_preservation) {
-				target = ship->pos;
+		if (!strategy->allow_dropoff_collision && current_cell.halite > 300 && current_cell.near_info[3].num_enemy_ships > 0) {
+			bool any_other_ship_has_this_as_target = false;
+			for (auto& kv : me.ships) {
+				if (kv.second->task.type == TaskType::MINE && kv.second->task.position == ship->pos) {
+					any_other_ship_has_this_as_target = true;
+					break;
+				}
+			}
+
+			if(any_other_ship_has_this_as_target) {
+				if (game->strategy->CalcFriendliness(ship, ship->pos) < features::friendliness_drop_preservation) {
+					target = ship->pos;
+				}
 			}
 		}
 		break;
-	}
-	if (strategy->closestDropoffDist[ship->pos.x][ship->pos.y] <= 1) {
-		policy = EnemyPolicy::NONE;
 	}
 
 	std::vector<NavigationOption> options;
@@ -146,14 +142,12 @@ std::vector<NavigationOption> Navigation::NavigationOptionsForShip(Ship* ship)
 
 	for (const Direction direction : dirs) {
 		Position pp = ship->pos.DirectionalOffset(direction);
-		int dist_to_ship = direction == Direction::STILL ? 0 : 1;
 
 		//out::Log("Ship " + std::to_string(ship->ship_id) + " option " + std::to_string(static_cast<int>(direction)) + " at " + pp.str() + "   policy: " + std::to_string(static_cast<int>(policy)));
 		
 		/// --------------------------------------------------------------
 		Cell& moving_cell = game_map->GetCell(pp);
 		bool hit_free = IsHitFree(pp);
-		EnemyPolicy policy_cell = EnemyPolicy::NONE;// = moving_cell.enemy_reach_halite == -1 ? EnemyPolicy::NONE : GetMLPolicy(ship, pp);
 
 		Ship* other_ship = moving_cell.ship_on_cell;
 		bool is_other_enemy = other_ship && other_ship->player_id != me.id;
@@ -165,9 +159,8 @@ std::vector<NavigationOption> Navigation::NavigationOptionsForShip(Ship* ship)
 
 		if (hit_free) {
 			possibleOption = true;
-			if (moving_cell.enemy_reach_halite != -1/* policy_cell == EnemyPolicy::DODGE*/) {
-
-				bool should_dodge = friendliness < features::friendliness_dodge; // 0.38
+			if (moving_cell.enemy_reach_halite != -1) {
+				bool should_dodge = friendliness < features::friendliness_dodge;
 
 				if (ship->halite >= Game::Get()->map->GetCell(pp).MoveCost())
 					friendliness += 0.1;
@@ -180,13 +173,13 @@ std::vector<NavigationOption> Navigation::NavigationOptionsForShip(Ship* ship)
 			}
 		}
 		else {
-			if (is_other_enemy/*policy_cell == EnemyPolicy::ENGAGE*/) {
-				bool can_attack = friendliness > features::friendliness_can_attack; // 1.85
+			if (is_other_enemy) {
+				bool can_attack = friendliness > features::friendliness_can_attack;
 
 				if (can_attack) {
 					possibleOption = true;
 
-					bool should_attack = friendliness > features::friendliness_should_attack; // 3.5
+					bool should_attack = friendliness > features::friendliness_should_attack;
 					if(should_attack)
 						optionCost = 1 + ((double)ship->halite / (double)constants::MAX_HALITE);
 				}
@@ -253,14 +246,12 @@ void Navigation::Navigate(std::vector<Ship*> ships, std::vector<Command>& comman
 		it++;
 	}
 
-	static std::uniform_real_distribution<double> random_01(0.0, 1.0);
-	static std::mt19937_64& mersenne_twister = mt();
 	static std::vector<NavigationOption> possible_options;
 	static std::map<Ship*, std::vector<int>> possible_options_by_ship; // (indices)
 
 	possible_options.clear();
 	possible_options_by_ship.clear();
-	mersenne_twister.seed(constants::GAME_SEED + game->turn);
+	SetRandom01Seed(constants::GAME_SEED + game->turn);
 
 	for (Ship* s : ships) {
 		auto options = NavigationOptionsForShip(s);
@@ -352,11 +343,11 @@ void Navigation::Navigate(std::vector<Ship*> ships, std::vector<Command>& comman
 			}
 
 			if (non_conflict.size() == 0) {
-				int subind = std::floor(random_01(mersenne_twister) * possible_options_by_ship[ship].size());
+				int subind = std::floor(GetRandom01() * possible_options_by_ship[ship].size());
 				return select(possible_options_by_ship[ship][subind]);
 			}
 			else {
-				int subind = std::floor(random_01(mersenne_twister) * non_conflict.size());
+				int subind = std::floor(GetRandom01() * non_conflict.size());
 				return select(non_conflict[subind]);
 			}
 		}
@@ -391,7 +382,7 @@ void Navigation::Navigate(std::vector<Ship*> ships, std::vector<Command>& comman
 			int guard = 0;
 			do {
 				if (guard++ > possible_options.size() * 5) break;
-				random_option_index = std::floor(random_01(mersenne_twister) * possible_options.size());
+				random_option_index = std::floor(GetRandom01() * possible_options.size());
 			} while (new_simulation.optionAt(possible_options[random_option_index].pos) == random_option_index);
 
 			if (random_option_index == -1) {

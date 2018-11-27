@@ -3,7 +3,6 @@
 #include "Game.hpp"
 #include "Strategy.hpp"
 
-
 #ifdef _WIN32
 #include <Windows.h>
 #endif
@@ -20,7 +19,7 @@ int main(int argc, char **argv) {
 #endif
 	Game game;
 
-	game.Initialize("mlomb-bot-v84");
+	game.Initialize("mlomb-bot-v85");
 	{
 		// Load features
 
