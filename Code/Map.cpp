@@ -54,7 +54,8 @@ void Map::Process()
 			Cell& c = GetCell({ x, y });
 
 			c.ship_on_cell = nullptr;
-			c.enemy_reach_halite = -1;
+			c.enemy_reach_halite_min = -1;
+			c.enemy_reach_halite_max = -1;
 			c.dropoff_owned = -1;
 
 			halite_remaining += c.halite;
@@ -74,8 +75,11 @@ void Map::Process()
 				for (Direction d : dirs) {
 					Position pd = ss.second->pos.DirectionalOffset(d);
 					Cell& c = GetCell(pd);
-					if (c.enemy_reach_halite == -1 || ss.second->halite < c.enemy_reach_halite) {
-						c.enemy_reach_halite = ss.second->halite;
+					if (c.enemy_reach_halite_min == -1 || ss.second->halite < c.enemy_reach_halite_min) {
+						c.enemy_reach_halite_min = ss.second->halite;
+					}
+					if (c.enemy_reach_halite_max == -1 || ss.second->halite > c.enemy_reach_halite_max) {
+						c.enemy_reach_halite_max = ss.second->halite;
 					}
 				}
 			}

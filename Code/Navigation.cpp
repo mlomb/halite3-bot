@@ -77,6 +77,11 @@ void Navigation::Clear()
 
 		// avoid enemy shipyard
 		hits[enemy_player.shipyard_position.x][enemy_player.shipyard_position.y] = BlockedCell::STATIC;
+		if (strategy->allow_dropoff_collision) {
+			for (Position dp : enemy_player.dropoffs) {
+				hits[dp.x][dp.y] = BlockedCell::STATIC;
+			}
+		}
 
 		for (auto& es : enemy_player.ships) {
 			if (me.IsDropoff(es.second->pos)) {
@@ -159,8 +164,8 @@ std::vector<NavigationOption> Navigation::NavigationOptionsForShip(Ship* ship)
 
 		if (hit_free) {
 			possibleOption = true;
-			if (moving_cell.enemy_reach_halite != -1) {
-				bool should_dodge = friendliness < features::friendliness_dodge;
+			if (moving_cell.enemy_reach_halite_min != -1) {
+				bool should_dodge = friendliness < features::friendliness_dodge && ship->task.type != TaskType::BLOCK_DROPOFF;
 
 				if (ship->halite >= Game::Get()->map->GetCell(pp).MoveCost())
 					friendliness += 0.1;

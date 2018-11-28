@@ -50,9 +50,10 @@ enum Stage {
 enum class TaskType {
 	NONE = 0,
 	MINE = 1,
-	ATTACK = 2,
-	DROP = 3,
-	TRANSFORM_INTO_DROPOFF = 4
+	BLOCK_DROPOFF = 2,
+	ATTACK = 3,
+	DROP = 4,
+	TRANSFORM_INTO_DROPOFF = 5
 };
 
 enum class EnemyPolicy {

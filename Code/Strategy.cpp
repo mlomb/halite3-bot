@@ -10,6 +10,7 @@ const int DROP_THRESHOLD = 970;
 Strategy::Strategy(Game* game) {
 	this->game = game;
 	this->navigation = new Navigation(this);
+	this->allow_dropoff_collision = false;
 }
 
 void Strategy::Initialize()
@@ -167,7 +168,6 @@ double Strategy::CalcFriendliness(Ship* s, Position p) {
 void Strategy::AssignTasks(std::vector<Command>& commands)
 {
 	reserved_halite = 0;
-	allow_dropoff_collision = false;
 
 	Player& me = game->GetMyPlayer();
 	if (me.ships.size() == 0) return;
@@ -201,9 +201,10 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 	}
 
 	// 1. Dropoffs
-	// 2. Drops
-	// 3. Attacks
-	// 4. Mining
+	// 2. Block dropoffs
+	// 3. Drops
+	// 4. Attacks
+	// 5. Mining
 
 	/* DROPOFFS */
 	for (Position dropoff_spot : dropoffs) {
@@ -226,7 +227,87 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 
 	FillClosestDropoffDist();
 
+	/* BLOCK DROPOFFS */
+	if (game->strategy->allow_dropoff_collision) {
+		struct BlockEdge {
+			Ship* s;
+			Position position;
+			double priority;
+		};
+		static std::vector<BlockEdge> block_edges;
+		block_edges.clear();
+
+		for (auto& sp : me.ships) {
+			Ship* s = sp.second;
+			if (s->assigned) continue;
+			if (s->halite > 50) continue; // only use ships with low halite
+
+			Position closest_enemy_dropoff;
+			int distance = INF;
+			for (auto& kv : game->players) {
+				if (kv.first != game->my_id) {
+					for (const Position& p : kv.second.dropoffs) {
+						int offs[9][2] = {
+							{ -1, -1 },
+							{  0, -1 },
+							{  1, -1 },
+							{ -1,  0 },
+							{  0,  0 },
+							{  1,  0 },
+							{ -1,  1 },
+							{  0,  1 },
+							{  1,  1 },
+						};
+
+						double k = s->pos == p;
+						
+						for (int i = 0; i < 9; i++) {
+							Position pp = { p.x + offs[i][0], p.y + offs[i][1] };
+							if (me.IsDropoff(pp)) continue;
+							int d = std::abs(pp.x - p.x) + std::abs(pp.y - p.y);
+							double h = game->map->GetCell(pp).enemy_reach_halite_max;
+							h = std::max(0.0, h);
+
+							block_edges.push_back({
+								s,
+								pp,
+								((4 - d) + (double)h / (double)constants::MAX_HALITE) / ((double)pp.ToroidalDistanceTo(s->pos) + 1) + k * 5
+							});
+						}
+					}
+				}
+			}
+		}
+
+		std::sort(block_edges.begin(), block_edges.end(), [](const BlockEdge& a, const BlockEdge& b) {
+			return a.priority > b.priority;
+		});
+
+		static bool blocked_assigned[MAX_MAP_SIZE][MAX_MAP_SIZE];
+		for (int x = 0; x < constants::MAP_WIDTH; x++)
+			for (int y = 0; y < constants::MAP_HEIGHT; y++)
+				blocked_assigned[x][y] = false;
+
+		for (BlockEdge& e : block_edges) {
+			if (e.s->assigned) continue;
+				
+			if (!blocked_assigned[e.position.x][e.position.y]) {
+				e.s->assigned = true;
+
+				e.s->task.position = e.position;
+				e.s->task.type = TaskType::BLOCK_DROPOFF;
+				e.s->task.policy = EnemyPolicy::ENGAGE;
+				e.s->task.priority = e.priority;
+
+				shipsToNavigate.push_back(e.s);
+
+				blocked_assigned[e.position.x][e.position.y] = true;
+			}
+		}
+	}
+
 	/* DROPS */
+	allow_dropoff_collision = false;
 	for (auto& sp : me.ships) {
 		Ship* s = sp.second;
 		if (s->assigned) continue;

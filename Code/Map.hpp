@@ -28,7 +28,7 @@ struct Cell {
 	bool inspiration;
 	AreaInfo near_info[MAX_CELL_NEAR_AREA_INFO + 1]; // 0 to MAX_CELL_AREA_INFO
 	Ship* ship_on_cell;
-	int enemy_reach_halite; // min
+	int enemy_reach_halite_min, enemy_reach_halite_max;
 	PlayerID dropoff_owned;
 
 	int MoveCost() {
