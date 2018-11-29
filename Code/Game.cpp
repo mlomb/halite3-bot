@@ -87,7 +87,6 @@ void Game::LoadFeatures(json& features)
 
 #define GET_FEATURE(name) if(features.find(#name) != features.end()) { features::name = features[#name]; }
 
-	GET_FEATURE(dropoff_ships_needed);
 	GET_FEATURE(dropoff_map_distance);
 	GET_FEATURE(dropoff_avg_threshold);
 
@@ -96,6 +95,12 @@ void Game::LoadFeatures(json& features)
 	GET_FEATURE(friendliness_can_attack);
 	GET_FEATURE(friendliness_should_attack);
 	GET_FEATURE(friendliness_mine_cell);
+
+	GET_FEATURE(mine_dist_cost);
+	GET_FEATURE(mine_dist_dropoff_cost);
+	GET_FEATURE(mine_avg_mult);
+	GET_FEATURE(mine_ally_mult);
+	GET_FEATURE(mine_enemy_mult);
 
 	GET_FEATURE(a);
 	GET_FEATURE(b);

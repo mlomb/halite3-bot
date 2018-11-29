@@ -39,7 +39,6 @@ namespace constants {
 }
 
 namespace features {
-	extern double dropoff_ships_needed;
 	extern double dropoff_map_distance;
 	extern double dropoff_avg_threshold;
 	
@@ -48,6 +47,12 @@ namespace features {
 	extern double friendliness_can_attack;
 	extern double friendliness_should_attack;
 	extern double friendliness_mine_cell;
+
+	extern double mine_dist_cost;
+	extern double mine_dist_dropoff_cost;
+	extern double mine_avg_mult;
+	extern double mine_ally_mult;
+	extern double mine_enemy_mult;
 
 	extern double a, b, c, d, e, f, g;
 }

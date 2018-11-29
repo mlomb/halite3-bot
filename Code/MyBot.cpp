@@ -19,7 +19,7 @@ int main(int argc, char **argv) {
 #endif
 	Game game;
 
-	game.Initialize("mlomb-bot-v86");
+	game.Initialize("mlomb-bot-v89");
 	{
 		// Load features
 

@@ -161,6 +161,7 @@ std::vector<NavigationOption> Navigation::NavigationOptionsForShip(Ship* ship)
 		bool possibleOption = false;
 
 		double friendliness = game->strategy->CalcFriendliness(ship, pp);
+		bool dropoff_offensive = strategy->allow_dropoff_collision && strategy->closestDropoffDist[pp.x][pp.y] <= 2;
 
 		if (hit_free) {
 			possibleOption = true;
@@ -172,6 +173,10 @@ std::vector<NavigationOption> Navigation::NavigationOptionsForShip(Ship* ship)
 				if(direction != Direction::STILL)
 					friendliness += 0.11;
 
+				if (dropoff_offensive) {
+					should_dodge = false;
+				}
+
 				if (should_dodge) {
 					optionCost += INF + (10000 - friendliness);
 				}
@@ -180,6 +185,10 @@ std::vector<NavigationOption> Navigation::NavigationOptionsForShip(Ship* ship)
 		else {
 			if (is_other_enemy) {
 				bool can_attack = friendliness > features::friendliness_can_attack;
+
+				if (dropoff_offensive) {
+					can_attack = true;
+				}
 
 				if (can_attack) {
 					possibleOption = true;

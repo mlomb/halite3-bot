@@ -5,8 +5,6 @@
 
 #include <fdeep/fdeep.hpp>
 
-const int DROP_THRESHOLD = 970;
-
 Strategy::Strategy(Game* game) {
 	this->game = game;
 	this->navigation = new Navigation(this);
@@ -79,10 +77,9 @@ std::vector<Position> Strategy::BestDropoffSpots()
 	auto& me = game->GetMyPlayer();
 
 	Position best_dropoff;
-	best_dropoff.x = -1;
-	best_dropoff.y = -1;
+	bool found = false;
 
-	if (me.ships.size() >= features::dropoff_ships_needed * me.dropoffs.size() && game->turn <= 0.75 * constants::MAX_TURNS) {
+	if (me.ships.size() >= 15 && game->turn <= 0.75 * constants::MAX_TURNS) {
 		// find a good spot for a dropoff
 		double bestRatio = -1;
 
@@ -91,18 +88,20 @@ std::vector<Position> Strategy::BestDropoffSpots()
 				Position pos = { x, y };
 				if (!game->IsDropoff(pos)) {
 					Cell& c = game->map->GetCell(pos);
+					AreaInfo& info = c.near_info[5];
+
 					double ratio = -1;
+					int distance_to_closest_dropoff = closestDropoffDist[x][y];
 
 					if (c.halite > 3000) {
 						ratio = INF + c.halite;
 					}
 					else {
-						int distance_to_closest_dropoff = closestDropoffDist[x][y];
 						if (distance_to_closest_dropoff > std::ceil(constants::MAP_WIDTH * features::dropoff_map_distance)) {
-							AreaInfo& info = c.near_info[5];
 							if (info.num_ally_ships > 2 && info.num_ally_ships >= info.num_enemy_ships) {
-								if (info.avgHalite / game->map->map_avg_halite >= features::dropoff_avg_threshold) {
-									ratio = info.avgHalite / (distance_to_closest_dropoff * distance_to_closest_dropoff);
+								double to_map_avg = info.avgHalite / game->map->map_avg_halite;
+								if (to_map_avg >= features::dropoff_avg_threshold) {
+									ratio = to_map_avg / (double)distance_to_closest_dropoff;
 								}
 							}
 						}
@@ -111,6 +110,7 @@ std::vector<Position> Strategy::BestDropoffSpots()
 					if (ratio > bestRatio) {
 						bestRatio = ratio;
 						best_dropoff = pos;
+						found = true;
 					}
 				}
 			}
@@ -119,7 +119,7 @@ std::vector<Position> Strategy::BestDropoffSpots()
 	
 	std::vector<Position> dropoffs;
 
-	if (best_dropoff.x != -1) {
+	if (found) {
 		dropoffs.push_back(best_dropoff);
 	}
 
@@ -132,6 +132,7 @@ double Strategy::CalcFriendliness(Ship* s, Position p) {
 	Cell& cell = game_map->GetCell(p);
 
 	const int DISTANCES = 4; // 0, 1, 2, 3
+	double contributions[DISTANCES] = { 8, 4, 2, 1 };
 	double friendliness = 0;
 
 	for (int d = 0; d < DISTANCES; d++) { // Dx
@@ -139,9 +140,9 @@ double Strategy::CalcFriendliness(Ship* s, Position p) {
 		for (auto& kv : cell.near_info[5].ally_ships_not_dropping_dist) {
 			if (kv.second == s) continue;
 			if (kv.first == d) {
-				double contribution = DISTANCES - d;
 				double i = 1.0 - ((double)kv.second->halite / (double)constants::MAX_HALITE);
-				friendliness += i * contribution;
+				i = std::max(i, 0.2);
+				friendliness += i * contributions[d];
 			}
 		}
 		// ENEMY
@@ -149,7 +150,8 @@ double Strategy::CalcFriendliness(Ship* s, Position p) {
 			if (kv.first == d) {
 				double contribution = DISTANCES - d;
 				double i = 1.0 - ((double)kv.second->halite / (double)constants::MAX_HALITE);
-				friendliness -= i * contribution;
+				i = std::max(i, 0.2);
+				friendliness -= i * contributions[d];
 			}
 		}
 		// Ally Dropoffs are like ships with 0 halite
@@ -157,7 +159,7 @@ double Strategy::CalcFriendliness(Ship* s, Position p) {
 			if (kv.first == d && kv.second == game->my_id) {
 				double contribution = DISTANCES - d;
 				double i = 1.0;
-				friendliness += i * contribution;
+				friendliness += i * contributions[d];
 			}
 		}
 	}
@@ -259,8 +261,12 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 							{  1,  1 },
 						};
 
-						double k = s->pos == p;
-						
+						int dist = s->pos.ToroidalDistanceTo(p);
+						if (dist > 10 && dist > game->remaining_turns * 1.1) {
+							// we are too far!
+							continue;
+						}
+
 						for (int i = 0; i < 9; i++) {
 							Position pp = { p.x + offs[i][0], p.y + offs[i][1] };
 							if (me.IsDropoff(pp)) continue;
@@ -271,7 +277,7 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 							block_edges.push_back({
 								s,
 								pp,
-								((4 - d) + (double)h / (double)constants::MAX_HALITE) / ((double)pp.ToroidalDistanceTo(s->pos) + 1) + k * 5
+								p.ToroidalDistanceTo(s->pos) + (d == 2 ? 2 : 1) + (h / (double)constants::MAX_HALITE)
 							});
 						}
 					}
@@ -308,6 +314,7 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 
 	/* DROPS */
 	allow_dropoff_collision = false;
+
 	for (auto& sp : me.ships) {
 		Ship* s = sp.second;
 		if (s->assigned) continue;
@@ -320,6 +327,11 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 		if (game->turn + std::ceil(time_to_drop * 1.255) >= constants::MAX_TURNS) {
 			allow_dropoff_collision = true;
 			s->dropping = true;
+		}
+
+		int DROP_THRESHOLD = 970;
+		if (game->map->GetCell(s->pos).near_info[5].avgHalite < 100) {
+			DROP_THRESHOLD = 750;
 		}
 
 		if (s->halite >= DROP_THRESHOLD || s->dropping) {
@@ -399,19 +411,14 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 						double profit = 0, time_cost = 0;
 
 						/// --------------------
-						profit = c.halite + (c.near_info[4].avgHalite / game->map->map_avg_halite) * 100.0;
+						profit = c.halite + (c.near_info[4].avgHalite / game->map->map_avg_halite) * features::mine_avg_mult;
 
-						time_cost = dist_to_cell * 4.0 + dist_to_dropoff * 0.8;
+						time_cost = dist_to_cell * features::mine_dist_cost + dist_to_dropoff * features::mine_dist_dropoff_cost;
 						if (c.inspiration && constants::INSPIRATION_ENABLED) {
 							profit *= 1 + constants::INSPIRED_BONUS_MULTIPLIER;
 						}
-						if (game->num_players == 2) {
-							profit += c.near_info[4].num_ally_ships * 15;
-							profit -= c.near_info[4].num_enemy_ships * 25;
-						}
-						else {
-							profit -= c.near_info[4].num_ally_ships * 20;
-						}
+						profit += c.near_info[4].num_ally_ships * features::mine_ally_mult;
+						profit -= c.near_info[4].num_enemy_ships * features::mine_enemy_mult;
 						/// --------------------
 
 						priority = profit / time_cost;

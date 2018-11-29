@@ -20,7 +20,6 @@ namespace constants {
 }
 
 namespace features {
-	double dropoff_ships_needed;
 	double dropoff_map_distance;
 	double dropoff_avg_threshold;
 
@@ -29,6 +28,12 @@ namespace features {
 	double friendliness_can_attack;
 	double friendliness_should_attack;
 	double friendliness_mine_cell;
+
+	double mine_dist_cost;
+	double mine_dist_dropoff_cost;
+	double mine_avg_mult;
+	double mine_ally_mult;
+	double mine_enemy_mult;
 
 	// For testing
 	double a, b, c, d, e, f, g;

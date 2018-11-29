@@ -1,6 +1,7 @@
 #include "Player.hpp"
 
 #include "Game.hpp"
+#include "Strategy.hpp"
 
 Player::Player(PlayerID id, Position shipyard_position)
 {
