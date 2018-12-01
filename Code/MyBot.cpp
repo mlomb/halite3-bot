@@ -19,7 +19,7 @@ int main(int argc, char **argv) {
 #endif
 	Game game;
 
-	game.Initialize("mlomb-bot-v89");
+	game.Initialize("mlomb-bot-v93");
 	{
 		// Load features
 
@@ -36,7 +36,7 @@ int main(int argc, char **argv) {
 		std::string json_str = "";
 		if (argc == 2) {
 			json_str = std::string(argv[1]);
-			if (json_str.substr(json_str.length() - 5) == ".json") {
+			if (json_str.length() > 6 && json_str.substr(json_str.length() - 5) == ".json") {
 				files.push_back(json_str);
 				json_str = "";
 			}
