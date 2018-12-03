@@ -90,7 +90,6 @@ void Game::LoadFeatures(json& features)
 	if(features.find(#name"_slope")     != features.end()) { features::name.slope     = features[#name"_slope"]; } \
 	if(features.find(#name"_intercept") != features.end()) { features::name.intercept = features[#name"_intercept"]; }
 
-	GET_FEATURE(dropoff_map_distance);
 	GET_FEATURE(dropoff_avg_threshold);
 
 	GET_FEATURE(friendliness_drop_preservation);

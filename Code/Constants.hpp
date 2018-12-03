@@ -62,7 +62,6 @@ struct Parameter {
 };
 
 namespace features {
-	extern Parameter dropoff_map_distance;
 	extern Parameter dropoff_avg_threshold;
 	
 	extern Parameter friendliness_drop_preservation;

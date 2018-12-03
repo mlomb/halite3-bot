@@ -79,7 +79,7 @@ std::vector<Position> Strategy::BestDropoffSpots()
 	Position best_dropoff;
 	bool found = false;
 
-	if (me.ships.size() >= 15 && game->turn <= 0.75 * constants::MAX_TURNS) {
+	if (me.ships.size() >= 15 * me.dropoffs.size() && game->turn <= 0.8 * constants::MAX_TURNS) {
 		// find a good spot for a dropoff
 		double bestRatio = -1;
 
@@ -97,7 +97,7 @@ std::vector<Position> Strategy::BestDropoffSpots()
 						ratio = INF + c.halite;
 					}
 					else {
-						if (distance_to_closest_dropoff > std::ceil(constants::MAP_WIDTH * features::dropoff_map_distance.get())) {
+						if (distance_to_closest_dropoff > 15) {
 							if (info.num_ally_ships > 2 && info.num_ally_ships >= info.num_enemy_ships) {
 								double to_map_avg = info.avgHalite / game->map->map_avg_halite;
 								if (to_map_avg >= features::dropoff_avg_threshold.get()) {

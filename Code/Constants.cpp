@@ -20,7 +20,6 @@ namespace constants {
 }
 
 namespace features {
-	Parameter dropoff_map_distance(0, 1);
 	Parameter dropoff_avg_threshold(0, 3.5);
 
 	Parameter friendliness_drop_preservation(-1, 1);
