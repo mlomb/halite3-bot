@@ -22,7 +22,6 @@ int main(int argc, char **argv) {
 	game.Initialize("mlomb-bot-v93");
 	{
 		// Load features
-
 		std::string game_code = std::to_string(game.num_players) + "p";
 		std::string game_code_specific = game_code + "_" + std::to_string(game.map->width);
 

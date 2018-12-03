@@ -15,6 +15,7 @@ Game::Game()
 void Game::Initialize(const std::string& bot_name)
 {
 	std::ios_base::sync_with_stdio(false);
+	std::cin.tie(0);
 
 	json constants_json = json::parse(in::GetString());
 	LoadConstants(constants_json);
@@ -85,7 +86,9 @@ void Game::LoadFeatures(json& features)
 		}
 	}
 
-#define GET_FEATURE(name) if(features.find(#name) != features.end()) { features::name = features[#name]; }
+#define GET_FEATURE(name) \
+	if(features.find(#name"_slope")     != features.end()) { features::name.slope     = features[#name"_slope"]; } \
+	if(features.find(#name"_intercept") != features.end()) { features::name.intercept = features[#name"_intercept"]; }
 
 	GET_FEATURE(dropoff_map_distance);
 	GET_FEATURE(dropoff_avg_threshold);
@@ -102,6 +105,7 @@ void Game::LoadFeatures(json& features)
 	GET_FEATURE(mine_ally_mult);
 	GET_FEATURE(mine_enemy_mult);
 
+	/*
 	GET_FEATURE(a);
 	GET_FEATURE(b);
 	GET_FEATURE(c);
@@ -109,6 +113,7 @@ void Game::LoadFeatures(json& features)
 	GET_FEATURE(e);
 	GET_FEATURE(f);
 	GET_FEATURE(g);
+	*/
 }
 
 void Game::Play()

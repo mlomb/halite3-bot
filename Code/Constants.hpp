@@ -2,6 +2,7 @@
 
 #include <unordered_map>
 #include <string>
+#include <algorithm>
 
 namespace constants {
 	/** The maximum amount of halite a ship can carry. */
@@ -38,21 +39,43 @@ namespace constants {
 	extern unsigned int RANDOM_SEED;
 }
 
-namespace features {
-	extern double dropoff_map_distance;
-	extern double dropoff_avg_threshold;
-	
-	extern double friendliness_drop_preservation;
-	extern double friendliness_dodge;
-	extern double friendliness_can_attack;
-	extern double friendliness_should_attack;
-	extern double friendliness_mine_cell;
+struct Parameter {
+	Parameter(double min, double max) : min(min), max(max), computed(false) {};
 
-	extern double mine_dist_cost;
-	extern double mine_dist_dropoff_cost;
-	extern double mine_avg_mult;
-	extern double mine_ally_mult;
-	extern double mine_enemy_mult;
+	double slope;
+	double intercept;
+	double min, max;
+
+	bool computed;
+	double value;
+
+	double get() {
+		if (computed)
+			return value;
+
+		double x = (constants::MAP_WIDTH - 32.0) / 32.0;
+		value = min + std::max(0.0, std::min(1.0, slope * x + intercept)) * (max - min);
+
+		computed = true;
+		return value;
+	}
+};
+
+namespace features {
+	extern Parameter dropoff_map_distance;
+	extern Parameter dropoff_avg_threshold;
+	
+	extern Parameter friendliness_drop_preservation;
+	extern Parameter friendliness_dodge;
+	extern Parameter friendliness_can_attack;
+	extern Parameter friendliness_should_attack;
+	extern Parameter friendliness_mine_cell;
+
+	extern Parameter mine_dist_cost;
+	extern Parameter mine_dist_dropoff_cost;
+	extern Parameter mine_avg_mult;
+	extern Parameter mine_ally_mult;
+	extern Parameter mine_enemy_mult;
 
 	extern double a, b, c, d, e, f, g;
 }

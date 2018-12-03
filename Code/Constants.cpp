@@ -20,20 +20,20 @@ namespace constants {
 }
 
 namespace features {
-	double dropoff_map_distance;
-	double dropoff_avg_threshold;
+	Parameter dropoff_map_distance(0, 1);
+	Parameter dropoff_avg_threshold(0, 3.5);
 
-	double friendliness_drop_preservation;
-	double friendliness_dodge;
-	double friendliness_can_attack;
-	double friendliness_should_attack;
-	double friendliness_mine_cell;
+	Parameter friendliness_drop_preservation(-1, 1);
+	Parameter friendliness_dodge(-0.5, 1.0);
+	Parameter friendliness_can_attack(-1, 4);
+	Parameter friendliness_should_attack(1, 5);
+	Parameter friendliness_mine_cell(-1.5, 0.1);
 
-	double mine_dist_cost;
-	double mine_dist_dropoff_cost;
-	double mine_avg_mult;
-	double mine_ally_mult;
-	double mine_enemy_mult;
+	Parameter mine_dist_cost(0, 10);
+	Parameter mine_dist_dropoff_cost(0, 10);
+	Parameter mine_avg_mult(0, 50);
+	Parameter mine_ally_mult(-150, 150);
+	Parameter mine_enemy_mult(-150, 150);
 
 	// For testing
 	double a, b, c, d, e, f, g;

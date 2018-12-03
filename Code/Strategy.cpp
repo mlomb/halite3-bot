@@ -97,10 +97,10 @@ std::vector<Position> Strategy::BestDropoffSpots()
 						ratio = INF + c.halite;
 					}
 					else {
-						if (distance_to_closest_dropoff > std::ceil(constants::MAP_WIDTH * features::dropoff_map_distance)) {
+						if (distance_to_closest_dropoff > std::ceil(constants::MAP_WIDTH * features::dropoff_map_distance.get())) {
 							if (info.num_ally_ships > 2 && info.num_ally_ships >= info.num_enemy_ships) {
 								double to_map_avg = info.avgHalite / game->map->map_avg_halite;
-								if (to_map_avg >= features::dropoff_avg_threshold) {
+								if (to_map_avg >= features::dropoff_avg_threshold.get()) {
 									ratio = to_map_avg / (double)distance_to_closest_dropoff;
 								}
 							}
@@ -359,7 +359,7 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 				// For each enemy ship
 				Cell& c = game->map->GetCell(ss.second->pos);
 				double friendliness = CalcFriendliness(nullptr, ss.second->pos);
-				if (friendliness > features::friendliness_should_attack) {
+				if (friendliness > features::friendliness_should_attack.get()) {
 					Ship* near_ship = me.ClosestShipAt(c.pos);
 					if (!near_ship || near_ship->assigned) continue;
 
@@ -403,7 +403,7 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 					Cell& c = game->map->GetCell(p);
 
 					double friendliness = CalcFriendliness(nullptr, p);
-					if (c.halite > threshold && friendliness > features::friendliness_mine_cell) { // -0.5
+					if (c.halite > threshold && friendliness > features::friendliness_mine_cell.get()) { // -0.5
 						int dist_to_cell = s->pos.ToroidalDistanceTo(p);
 						int dist_to_dropoff = closestDropoffDist[p.x][p.y];
 
@@ -411,14 +411,14 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 						double profit = 0, time_cost = 0;
 
 						/// --------------------
-						profit = c.halite + (c.near_info[4].avgHalite / game->map->map_avg_halite) * features::mine_avg_mult;
+						profit = c.halite + (c.near_info[4].avgHalite / game->map->map_avg_halite) * features::mine_avg_mult.get();
 
-						time_cost = dist_to_cell * features::mine_dist_cost + dist_to_dropoff * features::mine_dist_dropoff_cost;
+						time_cost = dist_to_cell * features::mine_dist_cost.get() + dist_to_dropoff * features::mine_dist_dropoff_cost.get();
 						if (c.inspiration && constants::INSPIRATION_ENABLED) {
 							profit *= 1 + constants::INSPIRED_BONUS_MULTIPLIER;
 						}
-						profit += c.near_info[4].num_ally_ships * features::mine_ally_mult;
-						profit -= c.near_info[4].num_enemy_ships * features::mine_enemy_mult;
+						profit += c.near_info[4].num_ally_ships * features::mine_ally_mult.get();
+						profit -= c.near_info[4].num_enemy_ships * features::mine_enemy_mult.get();
 						/// --------------------
 
 						priority = profit / time_cost;
