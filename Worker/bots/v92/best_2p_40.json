@@ -1,0 +1,18 @@
+{
+   "features":{
+      "dropoff_map_distance":0.433381,
+      "dropoff_avg_threshold":1.50574,
+	  
+      "friendliness_drop_preservation":0.390721,
+      "friendliness_dodge":0.244386,
+      "friendliness_can_attack":1.2642,
+      "friendliness_should_attack":2.99311,
+      "friendliness_mine_cell":-0.707798,
+	  
+      "mine_dist_cost":7.06656,
+      "mine_dist_dropoff_cost":0.738222,
+      "mine_avg_mult":29.2641,
+      "mine_ally_mult":-3.78405,
+      "mine_enemy_mult":5.60492
+   }
+}

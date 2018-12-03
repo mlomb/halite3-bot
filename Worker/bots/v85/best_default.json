@@ -1,0 +1,8 @@
+{
+  "features": {
+    "dropoff_ships_needed": 14,
+    "dropoff_map_distance": 0.35,
+    "dropoff_avg_threshold": 1.34
+  },
+  "fitness": 0
+}

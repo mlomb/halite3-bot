@@ -1,0 +1,9 @@
+{
+	"worker_name": "Local",
+	"concurrency": 5,
+	"queue_name": "bot-execution",
+	"redis": {
+		"host": "192.168.0.101",
+		"password": "LAfANq2Yt6NEqDA8"
+	}
+}

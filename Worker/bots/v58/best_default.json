@@ -1,0 +1,19 @@
+{
+  "features": {
+    "time_cost_dist_target": 3,
+    "time_cost_dist_dropoff": 0.2,
+    "time_cost_mining": 5,
+	
+    "dropoff_ships_needed": 14,
+    "dropoff_map_distance": 0.35,
+    "dropoff_avg_threshold": 1.34,
+	
+	"attack_mult":1.687294973722994,
+	"enemy_halite_worth":850.3066664645271,
+	"min_ally_ships_near":0.2667897689884635,
+	"ally_enemy_ratio":1.9483898032977414,
+	"ally_halite_less":483.77548375790093,
+	"halite_ratio_less":3.197943252620663
+  },
+  "fitness": 0
+}

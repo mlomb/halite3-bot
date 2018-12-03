@@ -1,0 +1,13 @@
+{
+  "name": "worker",
+  "version": "1.0.0",
+  "description": "",
+  "main": "worker.js",
+  "dependencies": {
+    "ascii-histogram": "^1.2.1",
+    "bee-queue": "^1.2.2",
+    "console.table": "^0.10.0",
+    "shuffle-array": "^1.0.1"
+  },
+  "devDependencies": {}
+}
