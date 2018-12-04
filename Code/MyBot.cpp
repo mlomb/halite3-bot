@@ -19,7 +19,7 @@ int main(int argc, char **argv) {
 #endif
 	Game game;
 
-	game.Initialize("mlomb-bot-v94");
+	game.Initialize("mlomb-bot-v96");
 	{
 		// Load features
 		std::string game_code = std::to_string(game.num_players) + "p";

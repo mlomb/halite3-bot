@@ -218,9 +218,10 @@ bool Game::TransformIntoDropoff(Ship* s, std::vector<Command>& commands)
 {
 	auto& me = GetMyPlayer();
 
-	double budget = s->halite + map->GetCell(s->pos).halite + me.halite;
-	if (budget >= constants::DROPOFF_COST) {
-		me.halite = budget - constants::DROPOFF_COST;
+	int to_pay = constants::DROPOFF_COST - (s->halite + map->GetCell(s->pos).halite);
+	to_pay = std::max(0, to_pay);
+	if (me.halite >= to_pay) {
+		me.halite -= to_pay;
 		commands.push_back(TransformShipIntoDropoffCommand(s->ship_id));
 		me.dropoffs.push_back(s->pos);
 		map->GetCell(s->pos).dropoff_owned = me.id;

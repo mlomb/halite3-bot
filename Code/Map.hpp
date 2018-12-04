@@ -4,7 +4,7 @@
 
 #include "Types.hpp"
 
-#define MAX_CELL_NEAR_AREA_INFO 5 // inclusive
+#define MAX_CELL_NEAR_AREA_INFO 10 // inclusive
 
 class Game;
 class Ship;

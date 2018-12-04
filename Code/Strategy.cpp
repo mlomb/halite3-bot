@@ -31,45 +31,24 @@ bool Strategy::ShouldSpawnShip()
 		}
 	}
 
-	// HARD MAX TURNS
-	if (game->turn >= 0.8 * constants::MAX_TURNS)
-		return false;
-
 	// HARD MIN TURNS
 	if (game->turn < 0.2 * constants::MAX_TURNS)
 		return true;
 
-	// HARD MAX COLLECTED
-	if (game->map->halite_remaining / (double)(constants::MAP_WIDTH * constants::MAP_HEIGHT) < 60)
-		return false;
+	int max_ships = 100;
+	int allowed_difference = game->num_players == 2 ? 5 : 10;
 
-	// HARD MAX SHIPS
-	if (my_ships > 20 && my_ships > enemy_ships * 2)
-		return false;
-
-	double max = 0.65;
-	switch (game->num_players) {
-	case 2:
-		switch (game->map->width) {
-		case 32: max = 0.60; break;
-		case 40: max = 0.62; break;
-		case 48: max = 0.65; break;
-		case 56: max = 0.68; break;
-		case 64: max = 0.70; break;
-		}
-		break;
-	case 4:
-		switch (game->map->width) {
-		case 32: max = 0.36; break;
-		case 40: max = 0.40; break;
-		case 48: max = 0.45; break;
-		case 56: max = 0.52; break;
-		case 64: max = 0.55; break;
-		}
-		break;
+	switch (game->map->width) {
+	case 32: max_ships = 60; break;
+	case 40: max_ships = 75; break;
+	case 48: max_ships = 85; break;
+	case 56: max_ships = 115; break;
+	case 64: max_ships = 155; break;
 	}
-	
-	return game->turn <= max * constants::MAX_TURNS;
+
+	return game->turn <= 0.75 * constants::MAX_TURNS &&
+		   my_ships - enemy_ships <= allowed_difference &&
+		   my_ships < max_ships;
 }
 
 std::vector<Position> Strategy::BestDropoffSpots()
@@ -88,19 +67,20 @@ std::vector<Position> Strategy::BestDropoffSpots()
 				Position pos = { x, y };
 				if (!game->IsDropoff(pos)) {
 					Cell& c = game->map->GetCell(pos);
-					AreaInfo& info = c.near_info[5];
+					AreaInfo& info_10 = c.near_info[10];
+					AreaInfo& info_5 = c.near_info[5];
 
 					double ratio = -1;
 					int distance_to_closest_dropoff = closestDropoffDist[x][y];
 
-					if (c.halite > 3000) {
+					if (c.halite > 3600) {
 						ratio = INF + c.halite;
 					}
 					else {
 						if (distance_to_closest_dropoff > 15) {
-							if (info.num_ally_ships > 2 && info.num_ally_ships >= info.num_enemy_ships) {
-								double to_map_avg = info.avgHalite / game->map->map_avg_halite;
-								if (to_map_avg >= features::dropoff_avg_threshold.get()) {
+							if (info_5.num_ally_ships > 1) {
+								double to_map_avg = info_10.avgHalite / game->map->map_avg_halite;
+								if (to_map_avg >= 1.2 && info_10.avgHalite >= 45) {
 									ratio = to_map_avg / (double)distance_to_closest_dropoff;
 								}
 							}
@@ -411,14 +391,31 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 						double profit = 0, time_cost = 0;
 
 						/// --------------------
-						profit = c.halite + (c.near_info[4].avgHalite / game->map->map_avg_halite) * features::mine_avg_mult.get();
+						if (false) {
+							profit = c.halite + (c.near_info[4].avgHalite / game->map->map_avg_halite) * features::mine_avg_mult.get();
 
-						time_cost = dist_to_cell * features::mine_dist_cost.get() + dist_to_dropoff * features::mine_dist_dropoff_cost.get();
-						if (c.inspiration && constants::INSPIRATION_ENABLED) {
-							profit *= 1 + constants::INSPIRED_BONUS_MULTIPLIER;
+							time_cost = dist_to_cell * features::mine_dist_cost.get() + dist_to_dropoff * features::mine_dist_dropoff_cost.get();
+							if (c.inspiration && constants::INSPIRATION_ENABLED) {
+								profit *= 1 + constants::INSPIRED_BONUS_MULTIPLIER;
+							}
+							profit += c.near_info[4].num_ally_ships * features::mine_ally_mult.get();
+							profit -= c.near_info[4].num_enemy_ships * features::mine_enemy_mult.get();
 						}
-						profit += c.near_info[4].num_ally_ships * features::mine_ally_mult.get();
-						profit -= c.near_info[4].num_enemy_ships * features::mine_enemy_mult.get();
+						else {
+							profit = c.halite + (c.near_info[4].avgHalite / game->map->map_avg_halite) * 100.0;
+
+							time_cost = dist_to_cell * 4.0 + dist_to_dropoff * 0.8;
+							if (c.inspiration && constants::INSPIRATION_ENABLED) {
+								profit *= 1 + constants::INSPIRED_BONUS_MULTIPLIER;
+							}
+							if (game->num_players == 2) {
+								profit += c.near_info[4].num_ally_ships * 15;
+								profit -= c.near_info[4].num_enemy_ships * 25;
+							}
+							else {
+								profit -= c.near_info[4].num_ally_ships * 20;
+							}
+						}
 						/// --------------------
 
 						priority = profit / time_cost;
