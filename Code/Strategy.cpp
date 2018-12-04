@@ -24,20 +24,21 @@ bool Strategy::ShouldSpawnShip()
 	int enemy_ships = 0;
 	int my_halite = me.TotalHalite();
 	int my_ships = me.ships.size();
+	int all_ships = 0;
 	for (auto& pp : game->players) {
+		all_ships += pp.second.ships.size();
 		if (pp.first != me.id) {
 			enemy_halite += pp.second.TotalHalite();
 			enemy_ships += pp.second.ships.size();
 		}
 	}
 
-	// HARD MIN TURNS
-	if (game->turn < 0.2 * constants::MAX_TURNS)
-		return true;
 
-	int max_ships = 100;
 	int allowed_difference = game->num_players == 2 ? 5 : 10;
+	//int min_halite_in_map = (game->num_players == 2 ? 40 : 65) * 1000;
 
+	/*
+	int max_ships = 100;
 	switch (game->map->width) {
 	case 32: max_ships = 60; break;
 	case 40: max_ships = 75; break;
@@ -45,10 +46,16 @@ bool Strategy::ShouldSpawnShip()
 	case 56: max_ships = 115; break;
 	case 64: max_ships = 155; break;
 	}
+	*/
+
+	if (game->turn < 0.2 * constants::MAX_TURNS)
+		return true;
+	//if (game->map->halite_remaining < min_halite_in_map)
+	//	return false;
 
 	return game->turn <= 0.75 * constants::MAX_TURNS &&
 		   my_ships - enemy_ships <= allowed_difference &&
-		   my_ships < max_ships;
+		   (double)game->map->halite_remaining / (double)all_ships > 900;
 }
 
 std::vector<Position> Strategy::BestDropoffSpots()
