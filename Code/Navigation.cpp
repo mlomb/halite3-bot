@@ -124,7 +124,7 @@ std::vector<NavigationOption> Navigation::NavigationOptionsForShip(Ship* ship)
 			}
 
 			if(any_other_ship_has_this_as_target) {
-				if (game->strategy->CalcFriendliness(ship, ship->pos) < 0.55) {
+				if (game->strategy->CalcFriendliness(ship, ship->pos) < -0.3) { // friendliness_drop_preservation
 					target = ship->pos;
 				}
 			}
@@ -166,7 +166,7 @@ std::vector<NavigationOption> Navigation::NavigationOptionsForShip(Ship* ship)
 		if (hit_free) {
 			possibleOption = true;
 			if (moving_cell.enemy_reach_halite_min != -1) {
-				bool should_dodge = friendliness < 0.46 && ship->task.type != TaskType::BLOCK_DROPOFF;
+				bool should_dodge = friendliness < features::friendliness_dodge && ship->task.type != TaskType::BLOCK_DROPOFF;
 
 				if (ship->halite >= Game::Get()->map->GetCell(pp).MoveCost())
 					friendliness += 0.1;
@@ -184,7 +184,7 @@ std::vector<NavigationOption> Navigation::NavigationOptionsForShip(Ship* ship)
 		}
 		else {
 			if (is_other_enemy) {
-				bool can_attack = friendliness > 0.378;
+				bool can_attack = friendliness > features::friendliness_can_attack;
 
 				if (dropoff_offensive) {
 					can_attack = true;
@@ -193,8 +193,8 @@ std::vector<NavigationOption> Navigation::NavigationOptionsForShip(Ship* ship)
 				if (can_attack) {
 					possibleOption = true;
 
-					bool should_attack = friendliness > 0.51937;
-					if(should_attack)
+					bool should_attack = friendliness > features::friendliness_should_attack;
+					if (should_attack)
 						optionCost = 1 + ((double)ship->halite / (double)constants::MAX_HALITE);
 				}
 			}

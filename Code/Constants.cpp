@@ -26,21 +26,17 @@ namespace features {
 	double dropoff_to_map_avg;
 	int dropoff_min_avg;
 
-	/*
-	Parameter dropoff_avg_threshold(0, 3.5);
+	double mine_near_avg;
+	double mine_dist_cost;
+	double mine_dist_dropoff_cost;
+	double mine_ally_ships_mult;
+	double mine_enemy_ships_mult;
+	double priority_epsilon;
 
-	Parameter friendliness_drop_preservation(-1, 1);
-	Parameter friendliness_dodge(-0.5, 1.0);
-	Parameter friendliness_can_attack(-1, 4);
-	Parameter friendliness_should_attack(1, 5);
-	Parameter friendliness_mine_cell(-1.5, 0.1);
-
-	Parameter mine_dist_cost(0, 10);
-	Parameter mine_dist_dropoff_cost(0, 10);
-	Parameter mine_avg_mult(0, 50);
-	Parameter mine_ally_mult(-150, 150);
-	Parameter mine_enemy_mult(-150, 150);
-	*/
+	double friendliness_mine_cell;
+	double friendliness_dodge;
+	double friendliness_should_attack;
+	double friendliness_can_attack;
 
 	// For testing
 	double a, b, c, d, e, f, g;

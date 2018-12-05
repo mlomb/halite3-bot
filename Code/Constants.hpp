@@ -49,9 +49,18 @@ namespace features {
 	extern int dropoff_min_avg;
 
 	// Mining
+	extern double mine_near_avg;
+	extern double mine_dist_cost;
+	extern double mine_dist_dropoff_cost;
+	extern double mine_ally_ships_mult;
+	extern double mine_enemy_ships_mult;
+	extern double priority_epsilon;
 
 	// Combat
-
+	extern double friendliness_mine_cell;
+	extern double friendliness_dodge;
+	extern double friendliness_should_attack;
+	extern double friendliness_can_attack;
 
 	// Tests
 	extern double a, b, c, d, e, f, g;

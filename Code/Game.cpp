@@ -95,6 +95,18 @@ void Game::LoadFeatures(json& features)
 	GET_FEATURE(dropoff_to_map_avg);
 	GET_FEATURE(dropoff_min_avg);
 
+	GET_FEATURE(mine_near_avg);
+	GET_FEATURE(mine_dist_cost);
+	GET_FEATURE(mine_dist_dropoff_cost);
+	GET_FEATURE(mine_ally_ships_mult);
+	GET_FEATURE(mine_enemy_ships_mult);
+	GET_FEATURE(priority_epsilon);
+
+	GET_FEATURE(friendliness_mine_cell);
+	GET_FEATURE(friendliness_dodge);
+	GET_FEATURE(friendliness_should_attack);
+	GET_FEATURE(friendliness_can_attack);
+
 	GET_FEATURE(a);
 	GET_FEATURE(b);
 	GET_FEATURE(c);

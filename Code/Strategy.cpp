@@ -328,7 +328,7 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 				// For each enemy ship
 				Cell& c = game->map->GetCell(ss.second->pos);
 				double friendliness = CalcFriendliness(nullptr, ss.second->pos);
-				if (friendliness > 0.51937) {
+				if (friendliness > features::friendliness_should_attack) {
 					Ship* near_ship = me.ClosestShipAt(c.pos);
 					if (!near_ship || near_ship->assigned) continue;
 
@@ -372,7 +372,7 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 					Cell& c = game->map->GetCell(p);
 
 					double friendliness = CalcFriendliness(nullptr, p);
-					if (true) {
+					if (friendliness > features::friendliness_mine_cell) {
 						int dist_to_cell = s->pos.ToroidalDistanceTo(p);
 						int dist_to_dropoff = closestDropoffDist[p.x][p.y];
 
@@ -385,22 +385,16 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 							halite *= 1 + constants::INSPIRED_BONUS_MULTIPLIER;
 						}
 
-						profit = halite * (1 + (c.near_info[6].avgHalite / game->map->map_avg_halite) * features::a);
+						profit = halite * (1 + (c.near_info[6].avgHalite / game->map->map_avg_halite) * features::mine_near_avg);
 
-						time_cost = dist_to_cell * features::b + dist_to_dropoff * features::c;
+						time_cost = dist_to_cell * features::mine_dist_cost + dist_to_dropoff * features::mine_dist_dropoff_cost;
 
-						//const int max_diff = 3;
-						//int diff = (c.near_info[4].num_enemy_ships - c.near_info[4].num_ally_ships);
-						//diff = std::max(-max_diff, std::min(max_diff, diff));
-
-						profit += c.near_info[4].num_ally_ships  * features::d;
-						profit += c.near_info[4].num_enemy_ships * features::e;
-
+						profit += c.near_info[4].num_ally_ships  * features::mine_ally_ships_mult;
+						profit += c.near_info[4].num_enemy_ships * features::mine_enemy_ships_mult;
 						/// --------------------
 
 						priority = profit / time_cost;
-						//out::Log(std::to_string(profit) + " / " + std::to_string(time_cost) + " = " + std::to_string(priority));
-
+						
 						if (priority > 0) {
 							Edge edge;
 							edge.s = s;
@@ -420,7 +414,7 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 
 	// Sort edges
 	std::sort(edges.begin(), edges.end(), [](const Edge& a, const Edge& b) {
-		if (std::fabs(a.priority - b.priority) < features::f)
+		if (std::fabs(a.priority - b.priority) < features::priority_epsilon)
 			return a.time_travel < b.time_travel;
 		else
 			return a.priority > b.priority;
@@ -438,13 +432,6 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 		Cell& c = game->map->GetCell(e.position);
 
 		int max_ships = 1;
-		/*
-		if (c.halite > 300 && c.near_info[3].num_enemy_ships > 0) {
-			max_ships = c.halite / (c.near_info[3].avgHalite * 2);
-		}
-		max_ships = std::min(2, std::max(1, max_ships));
-		*/
-		out::Log(std::to_string(e.priority));
 
 		if (mining_assigned[e.position.x][e.position.y] <= max_ships) {
 			e.s->assigned = true;
