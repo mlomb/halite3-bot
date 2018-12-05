@@ -372,7 +372,7 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 					Cell& c = game->map->GetCell(p);
 
 					double friendliness = CalcFriendliness(nullptr, p);
-					if (friendliness > features::friendliness_mine_cell) {
+					if (c.halite / friendliness > -400) {
 						int dist_to_cell = s->pos.ToroidalDistanceTo(p);
 						int dist_to_dropoff = closestDropoffDist[p.x][p.y];
 

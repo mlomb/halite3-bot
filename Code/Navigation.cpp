@@ -77,12 +77,17 @@ void Navigation::Clear()
 
 		// avoid enemy shipyard
 		hits[enemy_player.shipyard_position.x][enemy_player.shipyard_position.y] = BlockedCell::STATIC;
-		if (strategy->allow_dropoff_collision) {
-			for (Position dp : enemy_player.dropoffs) {
+
+		// enemy dropoffs
+		for (Position dp : enemy_player.dropoffs) {
+			if (strategy->allow_dropoff_collision ||
+				// prevent ships colliding into enemy dropoffs if enemies close
+				game->map->GetCell(dp).near_info[1].num_enemy_ships > 0) {
 				hits[dp.x][dp.y] = BlockedCell::STATIC;
 			}
 		}
 
+		// enemy ships
 		for (auto& es : enemy_player.ships) {
 			if (me.IsDropoff(es.second->pos)) {
 				hits[es.second->pos.x][es.second->pos.y] = BlockedCell::EMPTY;
