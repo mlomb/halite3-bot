@@ -359,7 +359,7 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 	edges.reserve(me.ships.size() * constants::MAP_WIDTH * constants::MAP_HEIGHT);
 
 	// Create mining edges
-	double threshold = std::min(35.0, game->map->map_avg_halite * 0.8);
+	double threshold = std::max(35.0, game->map->map_avg_halite * features::mine_halite_threshold);
 
 	for (auto& sp : me.ships) {
 		Ship* s = sp.second;
@@ -372,7 +372,7 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 					Cell& c = game->map->GetCell(p);
 
 					double friendliness = CalcFriendliness(nullptr, p);
-					if (c.halite / friendliness > -400) {
+					if (c.halite > threshold && friendliness > features::friendliness_mine_cell) {
 						int dist_to_cell = s->pos.ToroidalDistanceTo(p);
 						int dist_to_dropoff = closestDropoffDist[p.x][p.y];
 

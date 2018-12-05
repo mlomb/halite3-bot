@@ -26,6 +26,7 @@ namespace features {
 	double dropoff_to_map_avg;
 	int dropoff_min_avg;
 
+	double mine_halite_threshold;
 	double mine_near_avg;
 	double mine_dist_cost;
 	double mine_dist_dropoff_cost;

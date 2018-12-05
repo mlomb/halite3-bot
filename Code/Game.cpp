@@ -94,7 +94,8 @@ void Game::LoadFeatures(json& features)
 	GET_FEATURE(dropoff_per_ships);
 	GET_FEATURE(dropoff_to_map_avg);
 	GET_FEATURE(dropoff_min_avg);
-
+	
+	GET_FEATURE(mine_halite_threshold);
 	GET_FEATURE(mine_near_avg);
 	GET_FEATURE(mine_dist_cost);
 	GET_FEATURE(mine_dist_dropoff_cost);

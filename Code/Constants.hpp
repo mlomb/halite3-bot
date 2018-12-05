@@ -49,6 +49,7 @@ namespace features {
 	extern int dropoff_min_avg;
 
 	// Mining
+	extern double mine_halite_threshold;
 	extern double mine_near_avg;
 	extern double mine_dist_cost;
 	extern double mine_dist_dropoff_cost;
