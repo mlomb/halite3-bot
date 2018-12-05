@@ -20,6 +20,13 @@ namespace constants {
 }
 
 namespace features {
+	double spawn_min_halite_per_ship;
+
+	int dropoff_per_ships;
+	double dropoff_to_map_avg;
+	int dropoff_min_avg;
+
+	/*
 	Parameter dropoff_avg_threshold(0, 3.5);
 
 	Parameter friendliness_drop_preservation(-1, 1);
@@ -33,6 +40,7 @@ namespace features {
 	Parameter mine_avg_mult(0, 50);
 	Parameter mine_ally_mult(-150, 150);
 	Parameter mine_enemy_mult(-150, 150);
+	*/
 
 	// For testing
 	double a, b, c, d, e, f, g;

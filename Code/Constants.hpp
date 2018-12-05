@@ -39,42 +39,20 @@ namespace constants {
 	extern unsigned int RANDOM_SEED;
 }
 
-struct Parameter {
-	Parameter(double min, double max) : min(min), max(max), computed(false) {};
-
-	double slope;
-	double intercept;
-	double min, max;
-
-	bool computed;
-	double value;
-
-	double get() {
-		if (computed)
-			return value;
-
-		double x = (constants::MAP_WIDTH - 32.0) / 32.0;
-		value = min + std::max(0.0, std::min(1.0, slope * x + intercept)) * (max - min);
-
-		computed = true;
-		return value;
-	}
-};
-
 namespace features {
-	extern Parameter dropoff_avg_threshold;
-	
-	extern Parameter friendliness_drop_preservation;
-	extern Parameter friendliness_dodge;
-	extern Parameter friendliness_can_attack;
-	extern Parameter friendliness_should_attack;
-	extern Parameter friendliness_mine_cell;
+	// Spawning
+	extern double spawn_min_halite_per_ship;
 
-	extern Parameter mine_dist_cost;
-	extern Parameter mine_dist_dropoff_cost;
-	extern Parameter mine_avg_mult;
-	extern Parameter mine_ally_mult;
-	extern Parameter mine_enemy_mult;
+	// Dropoffs
+	extern int dropoff_per_ships;
+	extern double dropoff_to_map_avg;
+	extern int dropoff_min_avg;
 
+	// Mining
+
+	// Combat
+
+
+	// Tests
 	extern double a, b, c, d, e, f, g;
 }

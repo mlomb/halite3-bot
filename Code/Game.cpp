@@ -87,24 +87,14 @@ void Game::LoadFeatures(json& features)
 	}
 
 #define GET_FEATURE(name) \
-	if(features.find(#name"_slope")     != features.end()) { features::name.slope     = features[#name"_slope"]; } \
-	if(features.find(#name"_intercept") != features.end()) { features::name.intercept = features[#name"_intercept"]; }
+	if(features.find(#name) != features.end()) { features::name = features[#name]; } \
 
-	GET_FEATURE(dropoff_avg_threshold);
+	GET_FEATURE(spawn_min_halite_per_ship);
 
-	GET_FEATURE(friendliness_drop_preservation);
-	GET_FEATURE(friendliness_dodge);
-	GET_FEATURE(friendliness_can_attack);
-	GET_FEATURE(friendliness_should_attack);
-	GET_FEATURE(friendliness_mine_cell);
+	GET_FEATURE(dropoff_per_ships);
+	GET_FEATURE(dropoff_to_map_avg);
+	GET_FEATURE(dropoff_min_avg);
 
-	GET_FEATURE(mine_dist_cost);
-	GET_FEATURE(mine_dist_dropoff_cost);
-	GET_FEATURE(mine_avg_mult);
-	GET_FEATURE(mine_ally_mult);
-	GET_FEATURE(mine_enemy_mult);
-
-	/*
 	GET_FEATURE(a);
 	GET_FEATURE(b);
 	GET_FEATURE(c);
@@ -112,7 +102,6 @@ void Game::LoadFeatures(json& features)
 	GET_FEATURE(e);
 	GET_FEATURE(f);
 	GET_FEATURE(g);
-	*/
 }
 
 void Game::Play()

@@ -33,29 +33,14 @@ bool Strategy::ShouldSpawnShip()
 		}
 	}
 
-
 	int allowed_difference = game->num_players == 2 ? 5 : 10;
-	//int min_halite_in_map = (game->num_players == 2 ? 40 : 65) * 1000;
-
-	/*
-	int max_ships = 100;
-	switch (game->map->width) {
-	case 32: max_ships = 60; break;
-	case 40: max_ships = 75; break;
-	case 48: max_ships = 85; break;
-	case 56: max_ships = 115; break;
-	case 64: max_ships = 155; break;
-	}
-	*/
 
 	if (game->turn < 0.2 * constants::MAX_TURNS)
 		return true;
-	//if (game->map->halite_remaining < min_halite_in_map)
-	//	return false;
 
 	return game->turn <= 0.75 * constants::MAX_TURNS &&
 		   my_ships - enemy_ships <= allowed_difference &&
-		   (double)game->map->halite_remaining / (double)all_ships > 900;
+		   (double)game->map->halite_remaining / (double)all_ships > features::spawn_min_halite_per_ship;
 }
 
 std::vector<Position> Strategy::BestDropoffSpots()
@@ -65,7 +50,7 @@ std::vector<Position> Strategy::BestDropoffSpots()
 	Position best_dropoff;
 	bool found = false;
 
-	if (me.ships.size() >= 15 * me.dropoffs.size() && game->turn <= 0.8 * constants::MAX_TURNS) {
+	if (me.ships.size() >= features::dropoff_per_ships * me.dropoffs.size() && game->turn <= 0.8 * constants::MAX_TURNS) {
 		// find a good spot for a dropoff
 		double bestRatio = -1;
 
@@ -87,7 +72,7 @@ std::vector<Position> Strategy::BestDropoffSpots()
 						if (distance_to_closest_dropoff > 15) {
 							if (info_5.num_ally_ships > 1) {
 								double to_map_avg = info_10.avgHalite / game->map->map_avg_halite;
-								if (to_map_avg >= 1.2 && info_10.avgHalite >= 45) {
+								if (to_map_avg >= features::dropoff_to_map_avg && info_10.avgHalite >= features::dropoff_min_avg) {
 									ratio = to_map_avg / (double)distance_to_closest_dropoff;
 								}
 							}
@@ -119,7 +104,7 @@ double Strategy::CalcFriendliness(Ship* s, Position p) {
 	Cell& cell = game_map->GetCell(p);
 
 	const int DISTANCES = 4; // 0, 1, 2, 3
-	double contributions[DISTANCES] = { 8, 4, 2, 1 };
+	double contributions[DISTANCES] = { 6, 4, 2, 1 };
 	double friendliness = 0;
 
 	for (int d = 0; d < DISTANCES; d++) { // Dx
@@ -128,7 +113,7 @@ double Strategy::CalcFriendliness(Ship* s, Position p) {
 			if (kv.second == s) continue;
 			if (kv.first == d) {
 				double i = 1.0 - ((double)kv.second->halite / (double)constants::MAX_HALITE);
-				i = std::max(i, 0.2);
+				i = std::max(i, 0.1);
 				friendliness += i * contributions[d];
 			}
 		}
@@ -137,7 +122,7 @@ double Strategy::CalcFriendliness(Ship* s, Position p) {
 			if (kv.first == d) {
 				double contribution = DISTANCES - d;
 				double i = 1.0 - ((double)kv.second->halite / (double)constants::MAX_HALITE);
-				i = std::max(i, 0.2);
+				i = std::max(i, 0.1);
 				friendliness -= i * contributions[d];
 			}
 		}
@@ -206,7 +191,6 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 
 		dropoff_ship->task.position = dropoff_spot;
 		dropoff_ship->task.type = TaskType::TRANSFORM_INTO_DROPOFF;
-		dropoff_ship->task.policy = game->map->GetCell(dropoff_spot).halite > 3000 ? EnemyPolicy::ENGAGE : EnemyPolicy::DODGE;
 		dropoff_ship->task.priority = dropoff_ship->halite;
 
 		reserved_halite += std::max(constants::DROPOFF_COST - dropoff_ship->halite - game->map->GetCell(dropoff_spot).halite, 0);
@@ -289,7 +273,6 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 
 				e.s->task.position = e.position;
 				e.s->task.type = TaskType::BLOCK_DROPOFF;
-				e.s->task.policy = EnemyPolicy::ENGAGE;
 				e.s->task.priority = e.priority;
 
 				shipsToNavigate.push_back(e.s);
@@ -330,7 +313,6 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 
 			s->task.position = closest_dropoff;
 			s->task.type = TaskType::DROP;
-			s->task.policy = EnemyPolicy::DODGE;
 			s->task.priority = s->halite;
 
 			shipsToNavigate.push_back(s);
@@ -346,7 +328,7 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 				// For each enemy ship
 				Cell& c = game->map->GetCell(ss.second->pos);
 				double friendliness = CalcFriendliness(nullptr, ss.second->pos);
-				if (friendliness > features::friendliness_should_attack.get()) {
+				if (friendliness > 0.51937) {
 					Ship* near_ship = me.ClosestShipAt(c.pos);
 					if (!near_ship || near_ship->assigned) continue;
 
@@ -354,7 +336,6 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 
 					near_ship->task.position = c.pos;
 					near_ship->task.type = TaskType::ATTACK;
-					near_ship->task.policy = EnemyPolicy::ENGAGE;
 					near_ship->task.priority = ss.second->halite;
 
 					shipsToNavigate.push_back(near_ship);
@@ -369,6 +350,7 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 
 		Position position;
 		double priority;
+		double profit;
 		int time_travel;
 	};
 
@@ -390,7 +372,7 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 					Cell& c = game->map->GetCell(p);
 
 					double friendliness = CalcFriendliness(nullptr, p);
-					if (c.halite > threshold && friendliness > features::friendliness_mine_cell.get()) { // -0.5
+					if (true) {
 						int dist_to_cell = s->pos.ToroidalDistanceTo(p);
 						int dist_to_dropoff = closestDropoffDist[p.x][p.y];
 
@@ -398,41 +380,34 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 						double profit = 0, time_cost = 0;
 
 						/// --------------------
-						if (false) {
-							profit = c.halite + (c.near_info[4].avgHalite / game->map->map_avg_halite) * features::mine_avg_mult.get();
-
-							time_cost = dist_to_cell * features::mine_dist_cost.get() + dist_to_dropoff * features::mine_dist_dropoff_cost.get();
-							if (c.inspiration && constants::INSPIRATION_ENABLED) {
-								profit *= 1 + constants::INSPIRED_BONUS_MULTIPLIER;
-							}
-							profit += c.near_info[4].num_ally_ships * features::mine_ally_mult.get();
-							profit -= c.near_info[4].num_enemy_ships * features::mine_enemy_mult.get();
+						int halite = c.halite;
+						if (c.inspiration && constants::INSPIRATION_ENABLED) {
+							halite *= 1 + constants::INSPIRED_BONUS_MULTIPLIER;
 						}
-						else {
-							profit = c.halite + (c.near_info[4].avgHalite / game->map->map_avg_halite) * 100.0;
 
-							time_cost = dist_to_cell * 4.0 + dist_to_dropoff * 0.8;
-							if (c.inspiration && constants::INSPIRATION_ENABLED) {
-								profit *= 1 + constants::INSPIRED_BONUS_MULTIPLIER;
-							}
-							if (game->num_players == 2) {
-								profit += c.near_info[4].num_ally_ships * 15;
-								profit -= c.near_info[4].num_enemy_ships * 25;
-							}
-							else {
-								profit -= c.near_info[4].num_ally_ships * 20;
-							}
-						}
+						profit = halite * (1 + (c.near_info[6].avgHalite / game->map->map_avg_halite) * features::a);
+
+						time_cost = dist_to_cell * features::b + dist_to_dropoff * features::c;
+
+						//const int max_diff = 3;
+						//int diff = (c.near_info[4].num_enemy_ships - c.near_info[4].num_ally_ships);
+						//diff = std::max(-max_diff, std::min(max_diff, diff));
+
+						profit += c.near_info[4].num_ally_ships  * features::d;
+						profit += c.near_info[4].num_enemy_ships * features::e;
+
 						/// --------------------
 
 						priority = profit / time_cost;
+						//out::Log(std::to_string(profit) + " / " + std::to_string(time_cost) + " = " + std::to_string(priority));
 
 						if (priority > 0) {
 							Edge edge;
 							edge.s = s;
 							edge.position = p;
-							edge.priority = priority;
+							edge.profit = profit;
 							edge.time_travel = dist_to_cell;
+							edge.priority = profit / time_cost;
 							edges.push_back(edge);
 						}
 					}
@@ -445,7 +420,7 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 
 	// Sort edges
 	std::sort(edges.begin(), edges.end(), [](const Edge& a, const Edge& b) {
-		if (std::fabs(a.priority - b.priority) < 0.05)
+		if (std::fabs(a.priority - b.priority) < features::f)
 			return a.time_travel < b.time_travel;
 		else
 			return a.priority > b.priority;
@@ -469,13 +444,13 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 		}
 		max_ships = std::min(2, std::max(1, max_ships));
 		*/
+		out::Log(std::to_string(e.priority));
 
 		if (mining_assigned[e.position.x][e.position.y] <= max_ships) {
 			e.s->assigned = true;
 
 			e.s->task.position = e.position;
 			e.s->task.type = TaskType::MINE;
-			e.s->task.policy = EnemyPolicy::NONE;
 			e.s->task.priority = e.priority;
 
 			shipsToNavigate.push_back(e.s);
@@ -494,7 +469,6 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 		Position closest_dropoff = me.ClosestDropoff(s->pos);
 		s->task.position = closest_dropoff;
 		s->task.type = TaskType::DROP;
-		s->task.policy = EnemyPolicy::NONE;
 		s->task.priority = s->halite;
 
 		shipsToNavigate.push_back(s);

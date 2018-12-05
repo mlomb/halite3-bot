@@ -117,7 +117,6 @@ struct Position {
 struct ShipTask {
 	Position position;
 	TaskType type;
-	EnemyPolicy policy;
 	double priority;
 	bool override = false;
 };
