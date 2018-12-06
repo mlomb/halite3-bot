@@ -1,0 +1,13 @@
+{
+	"features": {
+		"spawn_min_halite_per_ship": 782,
+		
+		"dropoff_to_map_avg": 1.2,
+		"dropoff_min_avg": 45,
+		
+		"friendliness_mine_cell":-0.959050655756549,
+		"friendliness_dodge":-0.17641365528401626,
+		"friendliness_can_attack":0.6169317768133424,
+		"friendliness_should_attack":2.028993732017919
+	}
+}

@@ -345,6 +345,7 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 	}
 
 	/* MINING */
+	/*
 	struct Edge {
 		Ship* s;
 
@@ -359,7 +360,6 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 	edges.reserve(me.ships.size() * constants::MAP_WIDTH * constants::MAP_HEIGHT);
 
 	// Create mining edges
-
 	for (auto& sp : me.ships) {
 		Ship* s = sp.second;
 		if (s->assigned) continue;
@@ -400,7 +400,7 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 							edge.position = p;
 							edge.profit = profit;
 							edge.time_travel = dist_to_cell;
-							edge.priority = profit / time_cost;
+							edge.priority = priority;
 							edges.push_back(edge);
 						}
 					}
@@ -443,6 +443,177 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 
 			mining_assigned[e.position.x][e.position.y]++;
 		}
+	}
+	*/
+	struct Edge {
+		Position position;
+		double priority;
+		int time_travel;
+	};
+	static std::map<Ship*, std::vector<Edge>> edges;
+	edges.clear();
+
+	for (auto& sp : me.ships) {
+		Ship* s = sp.second;
+		if (s->assigned) continue;
+
+		for (int x = 0; x < constants::MAP_WIDTH; x++) {
+			for (int y = 0; y < constants::MAP_HEIGHT; y++) {
+				Position p = { x, y };
+				if (!game->IsDropoff(p)) {
+					Cell& c = game->map->GetCell(p);
+
+					double friendliness = CalcFriendliness(nullptr, p);
+					if (friendliness > features::friendliness_mine_cell) {
+						int dist_to_cell = s->pos.ToroidalDistanceTo(p);
+						int dist_to_dropoff = closestDropoffDist[p.x][p.y];
+
+						double priority = 0;
+						double profit = 0, time_cost = 0;
+
+						/// --------------------
+						int halite = c.halite;
+						if (c.inspiration && constants::INSPIRATION_ENABLED) {
+							halite *= 1 + constants::INSPIRED_BONUS_MULTIPLIER;
+						}
+
+						profit = halite * (1 + (c.near_info[6].avgHalite / game->map->map_avg_halite) * features::mine_near_avg);
+
+						time_cost = dist_to_cell * features::mine_dist_cost + dist_to_dropoff * features::mine_dist_dropoff_cost;
+
+						profit += c.near_info[4].num_ally_ships  * features::mine_ally_ships_mult;
+						profit += c.near_info[4].num_enemy_ships * features::mine_enemy_ships_mult;
+						/// --------------------
+
+						priority = profit / time_cost;
+
+						if (priority > 0) {
+							Edge edge;
+							edge.position = p;
+							edge.time_travel = dist_to_cell;
+							edge.priority = priority;
+							edges[s].push_back(edge);
+						}
+					}
+				}
+			}
+		}
+
+		std::sort(edges[s].begin(), edges[s].end(), [](const Edge& a, const Edge& b) {
+			//if (std::fabs(a.priority - b.priority) < features::priority_epsilon)
+			//	return a.time_travel < b.time_travel;
+			//else
+				return a.priority > b.priority;
+		});
+	}
+	struct AssignmentConfiguration {
+		std::map<Ship*, int> assignments;
+		Ship* map[MAX_MAP_SIZE][MAX_MAP_SIZE];
+		double total;
+
+		void Compute() {
+			//out::Log("=== Computing ===");
+			total = 0;
+			for (auto kv : assignments) {
+				total += edges[kv.first][kv.second].priority;
+				//out::Log(std::to_string(kv.first->ship_id) + " is assigned to #" + std::to_string(kv.second) + "   " + edges[kv.first][kv.second].position.str());
+			}
+		}
+	};
+	AssignmentConfiguration base;
+	for (int x = 0; x < constants::MAP_WIDTH; x++) {
+		for (int y = 0; y < constants::MAP_HEIGHT; y++) {
+			base.map[x][y] = 0;
+		}
+	}
+
+	for (auto kv : edges) {
+		int i = 0;
+		for (Edge& e : kv.second) {
+			if (base.map[e.position.x][e.position.y] == 0) {
+				base.assignments[kv.first] = i;
+				base.map[e.position.x][e.position.y] = kv.first;
+				break;
+			}
+			i++;
+		}
+	}
+
+	base.Compute();
+	out::Log("Initial total: " + std::to_string(base.total));
+
+	// optimize
+	bool better;
+	do {
+		better = false;
+
+		std::vector<Ship*> order;
+		for (auto kv : edges) {
+			order.push_back(kv.first);
+		}
+		std::random_shuffle(order.begin(), order.end());
+
+		for (Ship* s : order) {
+			int current_best_index = base.assignments[s];
+
+			for (int i = 0; i < current_best_index; i++) {
+				AssignmentConfiguration possible;
+				possible.total = 0;
+				possible.assignments = base.assignments;
+				for (int x = 0; x < constants::MAP_WIDTH; x++) {
+					for (int y = 0; y < constants::MAP_HEIGHT; y++) {
+						possible.map[x][y] = base.map[x][y];
+					}
+				}
+
+				Edge& old_edge = edges[s][current_best_index];
+				Edge& new_edge = edges[s][i];
+				Ship* replaced_ship = possible.map[new_edge.position.x][new_edge.position.y];
+
+				possible.map[new_edge.position.x][new_edge.position.y] = s;
+				possible.map[old_edge.position.x][old_edge.position.y] = 0;
+				possible.assignments[s] = i;
+
+				if (replaced_ship) {
+					int j = 0;
+					for (Edge& re : edges[replaced_ship]) {
+						if (possible.map[re.position.x][re.position.y] == 0) {
+							possible.assignments[replaced_ship] = j;
+							possible.map[re.position.x][re.position.y] = replaced_ship;
+							break;
+						}
+						j++;
+					}
+				}
+
+				possible.Compute();
+				if (possible.total > base.total) {
+					out::Log("Found better total: " + std::to_string(possible.total));
+					base = possible;
+					better = true;
+					break;
+				}
+			}
+		}
+
+	} while (better);
+
+	out::Log("Final total: " + std::to_string(base.total));
+
+	// final assign
+	for (auto& sp : me.ships) {
+		Ship* s = sp.second;
+		if (s->assigned) continue;
+
+		s->assigned = true;
+
+		Edge& e = edges[s][base.assignments[s]];
+
+		s->task.position = e.position;
+		s->task.type = TaskType::MINE;
+		s->task.priority = e.priority;
+
+		shipsToNavigate.push_back(s);
 	}
 
 	/* CHECK FOR UNASSIGNMENT */
