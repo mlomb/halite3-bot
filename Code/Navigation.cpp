@@ -196,11 +196,12 @@ std::vector<NavigationOption> Navigation::NavigationOptionsForShip(Ship* ship)
 				}
 
 				if (can_attack) {
-					possibleOption = true;
 
 					bool should_attack = friendliness > features::friendliness_should_attack;
-					if (should_attack)
+					if (should_attack) {
+						possibleOption = true;
 						optionCost = 1 + ((double)ship->halite / (double)constants::MAX_HALITE);
+					}
 				}
 			}
 		}
