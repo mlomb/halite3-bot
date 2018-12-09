@@ -25,7 +25,7 @@ namespace out {
 	std::vector<std::string> Stopwatch::messages;
 	std::map<std::string, StopwatchSummaryEntry> Stopwatch::summary;
 
-	const bool FLUORINE_ENABLED = false;
+	const bool FLUORINE_ENABLED = true;
 
 	static std::ofstream log_file;
 	static std::vector<std::string> log_buffer;
@@ -129,6 +129,7 @@ namespace out {
 
 	void Stopwatch::FlushMessages() {
 #ifdef HALITE_DEBUG
+		out::Log("++++++++++++++++++++++++++++");
 		for (std::string s : messages) {
 			out::Log(s);
 		}

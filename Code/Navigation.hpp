@@ -25,13 +25,14 @@ struct OptimalPathCell {
 	bool expanded = false;
 	bool added = false;
 
-	double ratio() const {
-		return (turns * 1000.0) + tor_dist + haliteCost / 10000.0;
+	long long int cost() const {
+		// -10-10-1000-
+		return (long long int)turns * 1000000 + (long long int)tor_dist * 10000 + (long long int)haliteCost;
 	}
 
 	bool operator<(const OptimalPathCell& rhs) const
 	{
-		return ratio() < rhs.ratio();
+		return cost() < rhs.cost();
 	}
 };
 struct OptimalPathMap {
@@ -39,7 +40,7 @@ struct OptimalPathMap {
 };
 
 struct NavigationOption {
-	double optionCost;
+	long long int optionCost;
 	Position pos;
 	Direction direction;
 	Ship* ship;

@@ -15,7 +15,8 @@
 
 class Ship;
 
-const int INF = 99999999;
+const int INF = 1e9;
+const long long int BIG_INF = 1e17;
 const int MAX_MAP_SIZE = 64;
 
 typedef int PlayerID;
@@ -37,14 +38,12 @@ const std::vector<Direction> DIRECTIONS = {
 	Direction::SOUTH
 };
 
-enum Stage {
-	// Most of the game, just mining and avoiding enemies
-	MINING,
-	// There is no more halite to pick up, try to collision
-	// with other turtles and steal their halite
-	STEALING,
-	// All ships should go to the nearest dropoff and collide
-	SUICIDE
+const std::vector<Direction> DIRECTIONS_WITH_STILL = {
+	Direction::EAST,
+	Direction::WEST,
+	Direction::NORTH,
+	Direction::SOUTH,
+	Direction::STILL
 };
 
 enum class TaskType {
