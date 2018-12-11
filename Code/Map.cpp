@@ -112,6 +112,7 @@ void Map::CalculateNearInfo(Cell& c)
 		info.num_ally_ships = 0;
 		info.num_enemy_ships = 0;
 		info.num_ally_ships_not_dropping = 0;
+		info.all_ships.clear();
 		info.enemy_ships_dist.clear();
 		info.ally_ships_not_dropping_dist.clear();
 		info.dropoffs_dist.clear();
@@ -133,6 +134,8 @@ void Map::CalculateNearInfo(Cell& c)
 
 
 				if (it_cell.ship_on_cell) {
+					info.all_ships.push_back(std::make_pair(d, it_cell.ship_on_cell));
+
 					if (it_cell.ship_on_cell->player_id == my_id) {
 						info.num_ally_ships++;
 						if (!it_cell.ship_on_cell->dropping) {

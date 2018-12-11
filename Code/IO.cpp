@@ -25,7 +25,7 @@ namespace out {
 	std::vector<std::string> Stopwatch::messages;
 	std::map<std::string, StopwatchSummaryEntry> Stopwatch::summary;
 
-	const bool FLUORINE_ENABLED = true;
+	const bool FLUORINE_ENABLED = false;
 
 	static std::ofstream log_file;
 	static std::vector<std::string> log_buffer;

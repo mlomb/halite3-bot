@@ -25,9 +25,10 @@ var bots = [
 	{
 		bot: 'Latest',
 		arguments: JSON.stringify(parameters).replace(/"/g, '\\"')
-}];
+	}
+];
 
-var possible_enemies = ['Aggresive', 'default', 'v58', 'v65', 'v68', 'v80', 'v85', 'v38', 'v92'];
+var possible_enemies = ['Aggresive', 'v65', 'v85', 'v92', 'v106'];
 while(bots.length < NUM_PLAYERS) {
 	bots.push({
 		bot: shuffle.pick(possible_enemies)
@@ -36,6 +37,7 @@ while(bots.length < NUM_PLAYERS) {
 
 const job = queueMatches.createJob({
 	seed: seed,
+	size: 32,
 	bots: bots,
 	replay: false
 }).timeout(11 * 60 * 1000);

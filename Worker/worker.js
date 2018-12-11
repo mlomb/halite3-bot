@@ -15,6 +15,7 @@ const queueMatches = new Queue(config.queue_name, {
 	redis: config.redis,
 	isWorker: true
 });
+queueMatches.destroy();
 
 queueMatches.on('ready', () => {
 	console.log('Connected sucessfully.');

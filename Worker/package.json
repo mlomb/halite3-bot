@@ -7,6 +7,7 @@
     "ascii-histogram": "^1.2.1",
     "bee-queue": "^1.2.2",
     "console.table": "^0.10.0",
+    "seedrandom": "^2.4.4",
     "shuffle-array": "^1.0.1"
   },
   "devDependencies": {}

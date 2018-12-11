@@ -33,16 +33,8 @@ public:
 	}
 
 	OptimizerResult Optimize(OptimizerMode mode = OptimizerMode::MINIMIZE) {
-		std::map<int, std::vector<Edge>> sorted_edges;
-		// insert all edges
-		for (Edge& e : edges)
-			sorted_edges[e.worker_index].push_back(e);
-		// sort every internal vector
-		for (auto& kv : sorted_edges) {
-			std::sort(kv.second.begin(), kv.second.end(), [mode](const Edge& a, const Edge& b) {
-				return mode == OptimizerMode::MAXIMIZE ? (a.value > b.value) : (a.value < b.value);
-			});
-		}
+		if (workers.size() == 0) return {};
+		UpdateSortedEdges(mode);
 
 		struct Solution {
 			// index: worker int: points to the i-th Edge inside sorted_edges and NOT the jobs vector
@@ -57,7 +49,7 @@ public:
 		Solution best = {};
 		best.assignments.resize(workers.size());
 		best.jobs_taken.resize(jobs.size());
-		best.total_value = 0;
+		best.total_value = mode == OptimizerMode::MAXIMIZE ? 0 : INF;
 		best.broken = true;
 		std::vector<int> order;
 		bool better;
@@ -135,7 +127,7 @@ public:
 					}
 				}
 			}
-		} while (better);
+		} while (better || best.broken);
 
 		OptimizerResult result;
 		for (int worker_index = 0; worker_index < best.assignments.size(); worker_index++) {
@@ -178,7 +170,7 @@ public:
 		
 		std::vector<int> flow_result = MinCostFlow(matrix);
 
-		OptimizerResult result = {};
+		OptimizerResult result;
 		for (int worker_index = 0; worker_index < workers.size(); worker_index++) {
 			int job_index = flow_result[worker_index];
 			result.assignments[workers[worker_index]] = jobs[job_index];
@@ -195,6 +187,7 @@ private:
 	std::vector<Worker> workers; // rows
 	std::vector<Job> jobs; // columns
 	std::vector<Edge> edges;
+	std::map<int, std::vector<Edge>> sorted_edges;
 
 	template<typename T>
 	int InsertAndGetIndex(std::vector<T>& v, T& t) {
@@ -205,6 +198,18 @@ private:
 		}
 		else {
 			return it - v.begin();
+		}
+	}
+
+	void UpdateSortedEdges(OptimizerMode mode) {
+		// insert all edges
+		for (Edge& e : edges)
+			sorted_edges[e.worker_index].push_back(e);
+		// sort every internal vector
+		for (auto& kv : sorted_edges) {
+			std::sort(kv.second.begin(), kv.second.end(), [mode](const Edge& a, const Edge& b) {
+				return mode == OptimizerMode::MAXIMIZE ? (a.value > b.value) : (a.value < b.value);
+			});
 		}
 	}
 

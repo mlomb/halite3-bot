@@ -19,15 +19,14 @@ enum BlockedCell {
 };
 
 struct OptimalPathCell {
-	int haliteCost = INF;
-	int turns = INF;
+	int haliteCost = 10e6;
+	int turns = 10e6;
 	int tor_dist = 0;
 	bool expanded = false;
 	bool added = false;
 
-	long long int cost() const {
-		// -10-10-1000-
-		return (long long int)turns * 1000000 + (long long int)tor_dist * 10000 + (long long int)haliteCost;
+	int cost() const {
+		return (turns * 60 + haliteCost) * 100 + tor_dist;
 	}
 
 	bool operator<(const OptimalPathCell& rhs) const

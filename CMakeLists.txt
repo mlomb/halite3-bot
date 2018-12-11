@@ -11,4 +11,4 @@ include_directories(${CMAKE_SOURCE_DIR}/Code)
 include_directories(${CMAKE_SOURCE_DIR}/include)
 
 file(GLOB_RECURSE SOURCE_FILES "Code/*.h" "Code/*.hpp" "Code/*.c" "Code/*.cpp")
-add_executable(MyBot ${SOURCE_FILES})
+add_executable(MyBot ${SOURCE_FILES} "${CMAKE_SOURCE_DIR}/include/dlib/all/source.cpp")

@@ -16,7 +16,7 @@ void Navigation::MinCostBFS(Position start, OptimalPathMap& map)
 
 	std::queue<Position> q;
 
-	map.cells[start.x][start.y].haliteCost = 0;
+	map.cells[start.x][start.y].haliteCost = game_map->GetCell(start).MoveCost();
 	map.cells[start.x][start.y].turns = 0;
 	map.cells[start.x][start.y].tor_dist = 0;
 	map.cells[start.x][start.y].expanded = false;
@@ -37,7 +37,7 @@ void Navigation::MinCostBFS(Position start, OptimalPathMap& map)
 			Position new_pos = p.DirectionalOffset(d);
 
 			OptimalPathCell new_state;
-			new_state.haliteCost = r.haliteCost + game_map->GetCell(p).MoveCost();
+			new_state.haliteCost = r.haliteCost + game_map->GetCell(new_pos).MoveCost();
 			new_state.turns = r.turns + 1;
 			new_state.expanded = false;
 			new_state.added = true;
@@ -60,6 +60,19 @@ void Navigation::MinCostBFS(Position start, OptimalPathMap& map)
 			}
 		}
 	}
+
+	/*
+	out::Log("------------");
+	out::Log("BFS FROM " + start.str());
+	for (int y = 0; y < constants::MAP_HEIGHT; y++) {
+		std::string l;
+		for (int x = 0; x < constants::MAP_WIDTH; x++) {
+			l += std::to_string(map.cells[x][y].cost()) + " ";
+		}
+		out::Log(l);
+	}
+	out::Log("------------");
+	*/
 }
 
 void Navigation::Clear()
@@ -129,12 +142,51 @@ std::vector<NavigationOption> Navigation::NavigationOptionsForShip(Ship* ship)
 	for (Direction direction : DIRECTIONS_WITH_STILL) {
 		Position p = ship->pos.DirectionalOffset(direction);
 
+		if (direction == Direction::STILL && me.IsDropoff(p)) {
+			// do not stay still in a dropoff ever.
+			continue;
+		}
+		if (game->turn < 10 && me.IsDropoff(p) && !ship->dropping) {
+			// early fix to bug
+			continue;
+		}
+
 		if (IsHitFree(p)) {
 			NavigationOption option;
 			option.direction = direction;
 			option.pos = p;
 			option.ship = ship;
-			option.optionCost = map.cells[p.x][p.y].cost();
+
+			long long int cost = 0;
+			cost += map.cells[p.x][p.y].cost();
+			cost += (5 - static_cast<int>(ship->task.type)) * 1000000;
+
+			// only apply costs if cell is not an ally dropoff
+			// and we are not blocking an enemy dropoff
+			if (!me.IsDropoff(p) && ship->task.type != TaskType::BLOCK_DROPOFF) {
+				bool inminent_attack = strategy->combat->WillReceiveImminentAttack(me, p);
+				bool free_to_move = strategy->combat->FreeToMove(me, p);
+				double friendliness = strategy->combat->Friendliness(me, p);
+
+				//out::Log("inminent_attack: " + std::to_string(inminent_attack) + ", free_to_move: " + std::to_string(free_to_move) + ", friendliness: " + std::to_string(friendliness));
+
+				if (inminent_attack) {
+					cost += 10000000;
+				}
+
+				int enemy_reach_halite = strategy->combat->EnemyReachHalite(me, p);
+				if (enemy_reach_halite > 0) {
+
+					if (!free_to_move) {
+						cost += 100000;
+					}
+
+					int friendliness_05 = std::ceil((friendliness + 15.0) / 0.5);
+					cost += friendliness_05 * 100000;
+				}
+			}
+
+			option.optionCost = cost;
 
 			options.push_back(option);
 		}
@@ -176,6 +228,7 @@ void Navigation::Navigate(std::vector<Ship*> ships, std::vector<Command>& comman
 		auto options = NavigationOptionsForShip(s);
 
 		for (NavigationOption& no : options) {
+			//out::Log("Ship #" + std::to_string(s->ship_id) + " option " + no.pos.str() + ": " + std::to_string(no.optionCost));
 			optimizer.InsertEdge(s, no.pos, no.optionCost);
 		}
 	}
@@ -191,7 +244,7 @@ void Navigation::Navigate(std::vector<Ship*> ships, std::vector<Command>& comman
 				commands.push_back(MoveCommand(s->ship_id, d));
 				hits[p.x][p.y] = p == s->task.position && !me.IsDropoff(p) ? BlockedCell::STATIC : BlockedCell::TRANSIENT;
 
-				//out::Log("### SHIP " + std::to_string(s->ship_id) + " CHOOSE OPTION " + std::to_string(static_cast<int>(d)));
+				//out::Log("### SHIP " + std::to_string(s->ship_id) + " CHOOSE OPTION " + std::to_string(static_cast<int>(d)) + " WITH TARGET: " + s->task.position.str());
 				break;
 			}
 		}

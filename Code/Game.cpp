@@ -19,7 +19,7 @@ void Game::Initialize(const std::string& bot_name)
 
 	json constants_json = json::parse(in::GetString());
 	LoadConstants(constants_json);
-	constants::RANDOM_SEED = rand();
+	constants::RANDOM_SEED = ::rand();
 	mt().seed(constants::GAME_SEED/* + constants::RANDOM_SEED*/);
 	in::GetSStream() >> num_players >> my_id;
 

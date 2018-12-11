@@ -77,6 +77,11 @@ Position Player::ClosestDropoff(const Position pos)
 	int distance = INF;
 
 	for (const Position& p : dropoffs) {
+		if (Game::Get()->my_id == this->id) {
+			if (Game::Get()->map->GetCell(p).near_info[3].num_enemy_ships > 5 && p != shipyard_position)
+				continue;
+		}
+
 		int dist = p.ToroidalDistanceTo(pos);
 		if (dist < distance) {
 			distance = dist;
