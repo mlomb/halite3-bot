@@ -312,7 +312,7 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 						cluster.ships.push_back(kv.second);
 					}
 
-					if (cluster.ships.size() > required_ships) {
+					if (cluster.ships.size() >= required_ships) {
 						attacks_optimizer.InsertEdge(cluster, ss.second->pos, 1000.0 * (ss.second->halite + c.halite) / (double)total_dist);
 					}
 				}
@@ -343,57 +343,120 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 				}
 			}
 		}
-	}
-	*/
+	}*/
+	/*
+	if (!game->strategy->allow_dropoff_collision) {
+		for (auto& pp : game->players) {
+			if (pp.first == me.id) continue;
+
+			for (auto& ss : pp.second.ships) {
+				// For each enemy ship
+				Cell& c = game->map->GetCell(ss.second->pos);
+				double friendliness = combat->Friendliness(me, ss.second->pos);
+				if (friendliness > features::friendliness_should_attack) {
+					Ship* near_ship = me.ClosestShipAt(c.pos);
+					if (!near_ship || near_ship->assigned) continue;
+
+					near_ship->assigned = true;
+
+					near_ship->task.position = c.pos;
+					near_ship->task.type = TaskType::ATTACK;
+					near_ship->task.priority = ss.second->halite;
+
+					shipsToNavigate.push_back(near_ship);
+				}
+			}
+		}
+	}*/
+	
 
 	/* MINING */
-	Optimizer<Ship*, PositionJob> optimizer;
+	std::vector< std::vector<OptimalPathMap> > mps(constants::MAP_WIDTH);
+	for (int x = 0; x < constants::MAP_WIDTH; x++) {
+		mps[x].resize(constants::MAP_HEIGHT);
+		for (int y = 0; y < constants::MAP_HEIGHT; y++) {
+			navigation->MinCostBFS({ x, y }, mps[x][y]);
+		}
+	}
+
+	Optimizer<Ship*, Position> optimizer;
 
 	for (int x = 0; x < constants::MAP_WIDTH; x++) {
 		for (int y = 0; y < constants::MAP_HEIGHT; y++) {
 			Position p = { x, y };
 			Cell& c = game->map->GetCell(p);
-			double friendliness = combat->Friendliness(me, p);
+			int friendliness = combat->FriendlinessNew(me, p, game->GetShipAt(p));
 
+			int dist_to_dropoff = closestDropoffDist[p.x][p.y];
 			if (!game->IsDropoff(p)) {
 				for (auto& sp : me.ships) {
 					Ship* s = sp.second;
 					if (s->assigned) continue;
 
 					// MINE
-					if (friendliness > -0.5/* || c.halite > 500*/) {
-						int dist_to_cell = s->pos.ToroidalDistanceTo(p);
-						int dist_to_dropoff = closestDropoffDist[p.x][p.y];
+					int dist_to_cell = s->pos.ToroidalDistanceTo(p);
+					Position cd = me.ClosestDropoff(p);
+					OptimalPathCell& opc = mps[p.x][p.y].cells[s->pos.x][s->pos.y];
+					OptimalPathCell& opc2 = mps[cd.x][cd.y].cells[p.x][p.y];
 
-						/// --------------------
-						double profit = 0, time_cost = 0;
+					dist_to_cell = opc.turns;
+					dist_to_dropoff = opc2.turns;
 
-						time_cost += dist_to_cell * features::mine_dist_cost;
-						time_cost += dist_to_dropoff * features::mine_dist_dropoff_cost;
+					/// --------------------s
+					double profit = 0, time_cost = 0;
 
-						profit += c.halite + (c.near_info[4].avgHalite / game->map->map_avg_halite) * 20.0;
-						if (c.inspiration && constants::INSPIRATION_ENABLED) {
-							profit *= 1 + constants::INSPIRED_BONUS_MULTIPLIER;
-						}
-						profit += c.near_info[4].num_ally_ships  * features::mine_ally_ships_mult;
-						profit += c.near_info[4].num_enemy_ships * features::mine_enemy_ships_mult;
 
-						double priority = profit / time_cost;
-						/// --------------------
+					time_cost += dist_to_cell * 4.0;
+					time_cost += dist_to_dropoff * 0.8;
 
-						if (priority > 0) {
-							int num_ships = 1;
-							/*
-							if (c.near_info[4].num_enemy_ships > 0) {
-								if (c.halite > 550) {
-									num_ships = 3;
-								}
-							}
-							*/
-							for (int i = 0; i < num_ships; i++) {
-								optimizer.InsertEdge(s, { p, i }, priority * 10000.0);
+					int hal = c.halite;
+					int near_hal = c.near_info[4].halite;
+
+					/*
+					if (friendliness >= features::friendliness_dodge) {
+					}
+					*/
+					// martin, comenta esto si mañana no anda xd
+					if (friendliness >= features::c /* 0 */) {
+						for (auto& kv : c.near_info[4].all_ships) {
+							if (kv.second->player_id != me.id) {
+								near_hal += kv.second->halite;
 							}
 						}
+						Ship* ss = game->GetShipAt(p);
+						if (ss && ss->player_id != me.id) {
+							hal += ss->halite;
+						}
+					}
+
+					//profit += hal + (((double)near_hal / (double)c.near_info[4].cells) / game->map->map_avg_halite) * 10.0;
+					//profit += hal * 100 + (((double)near_hal / (double)c.near_info[4].cells) / game->map->map_avg_halite) * 10.0;
+					//if (c.inspiration && constants::INSPIRATION_ENABLED) {
+					//	profit *= 1 + constants::INSPIRED_BONUS_MULTIPLIER;
+					//}
+					////int diff = std::max(0, c.near_info[4].num_enemy_ships - c.near_info[4].num_ally_ships);
+					////profit += diff * 50;
+					//
+					//double priority = (profit / time_cost) * 10000000.0;
+					/// --------------------
+
+					double near_hal_avg = (double)near_hal / (double)c.near_info[4].cells / game->map->map_avg_halite;
+
+					if (c.inspiration && constants::INSPIRATION_ENABLED) {
+						hal *= 1 + constants::INSPIRED_BONUS_MULTIPLIER;
+					}
+					profit = (hal + near_hal_avg * features::a /* 15 */) * features::b /* 10 */- opc.haliteCost - opc2.haliteCost;
+
+					double priority = profit / time_cost;
+
+					//out::Log("hal: " + std::to_string(hal) + " near_hal: " + std::to_string(near_hal) + " rat1: " + std::to_string((double)near_hal / (double)c.near_info[4].cells) + " rat1: " + std::to_string((((double)near_hal / (double)c.near_info[4].cells) / game->map->map_avg_halite)));
+					//out::Log("Priority for Ship #" + std::to_string(s->ship_id) + " in " + p.str() + " is " + std::to_string((long long)priority) + "( " + std::to_string(profit) + " / " + std::to_string(time_cost) + " )");
+
+					priority += 1000000; // prevent negatives
+					priority *= 1000000.0; // keep some decimals
+
+					if (priority > 0) {
+						optimizer.InsertEdge(s, p, (long long)priority);
 					}
 				}
 			}
@@ -408,8 +471,10 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 		if (s->assigned) continue;
 
 		s->assigned = true;
+		out::Log("Priority chosen Ship #" + std::to_string(s->ship_id) + " in " + kv.second.str());
 
-		s->task.position = kv.second.position;
+
+		s->task.position = kv.second;
 		s->task.type = TaskType::MINE;
 		s->task.priority = s->halite;
 

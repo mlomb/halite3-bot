@@ -42,14 +42,14 @@ public:
 			// index: job int: worker
 			std::vector<int> jobs_taken;
 
-			int total_value;
+			long long int total_value;
 			bool broken;
 		};
 
 		Solution best = {};
 		best.assignments.resize(workers.size());
 		best.jobs_taken.resize(jobs.size());
-		best.total_value = mode == OptimizerMode::MAXIMIZE ? 0 : INF;
+		best.total_value = mode == OptimizerMode::MAXIMIZE ? 0 : BIG_INF;
 		best.broken = true;
 		std::vector<int> order;
 		bool better;

@@ -44,7 +44,10 @@ class Combat {
 public:
 	Combat(Strategy* strategy);
 
-	double Friendliness(Player& player, Position position);
+	bool IsSafe(Position p, bool may_attack);
+	int FriendlinessNew(Player& player, Position position, Ship* skip);
+
+	double Friendliness(Player& player, Position position, bool ignore_position = false);
 	int EnemyReachHalite(Player& player, Position position);
 
 	bool WillReceiveImminentAttack(Player& player, Position position);

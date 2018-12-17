@@ -8,7 +8,54 @@ Combat::Combat(Strategy* strategy)
 {
 }
 
-double Combat::Friendliness(Player& player, Position position)
+bool Combat::IsSafe(Position p, bool may_attack)
+{
+	const int SAFE_DIST = 3;
+	Cell& c = game->map->GetCell(p);
+
+	if (c.near_info[SAFE_DIST].num_enemy_ships == 0)
+		return true;
+
+	for (int d = 1; d <= SAFE_DIST; d++) {
+		int a = c.near_info[d].num_enemy_ships;
+		int b = c.near_info[d].num_ally_ships_not_dropping;
+
+		bool s = may_attack ? a >= b : a > b;
+
+		if (s) {
+			return false;
+		}
+	}
+	return true;
+}
+
+int Combat::FriendlinessNew(Player& player, Position position, Ship* skip)
+{
+	Map* game_map = game->map;
+	Cell& cell = game_map->GetCell(position);
+
+	const int SAFE_DIST = 3;
+	const double contributions[SAFE_DIST + 1] = { 8, 8, 3, 1 };
+
+	int friendliness = 0;
+
+	for (int d = 0; d <= SAFE_DIST; d++) {
+		for (auto& kv : cell.near_info[5].all_ships) {
+			if (kv.first == d) {
+				if (kv.second->halite >= 900) continue;
+				if (kv.second == skip) continue;
+
+				bool ally_ship = kv.second->player_id == player.id;
+
+				friendliness += contributions[d] * (ally_ship ? 1 : -1);
+			}
+		}
+	}
+
+	return friendliness;
+}
+
+double Combat::Friendliness(Player& player, Position position, bool ignore_position)
 {
 	Map* game_map = game->map;
 	Cell& cell = game_map->GetCell(position);
@@ -21,11 +68,18 @@ double Combat::Friendliness(Player& player, Position position)
 	for (int d = 0; d < DISTANCES; d++) {
 		for (auto& kv : cell.near_info[5].all_ships) {
 			if (kv.first == d) {
+				if (kv.second->dropping) continue;
+				if (ignore_position) {
+					if (kv.second->pos == position && kv.second->player_id == player.id) {
+						continue;
+					}
+				}
+
 				bool ally_ship = kv.second->player_id == player.id;
 
-				double i = 1.0 - ((double)kv.second->halite / (double)constants::MAX_HALITE);
-				i = std::max(i, 0.35);
-				friendliness += i * contributions[d] * (ally_ship ? 1 : -1);
+				//double i = 1.0 - ((double)kv.second->halite / (double)constants::MAX_HALITE);
+				//i = std::max(i, 0.35);
+				friendliness += /* i */ 1.0 * contributions[d] * (ally_ship ? 1 : -1);
 			}
 		}
 		/*
@@ -51,7 +105,7 @@ int Combat::EnemyReachHalite(Player& player, Position position)
 		Position p = position.DirectionalOffset(d);
 		Ship* ship_there = game->GetShipAt(p);
 		if (ship_there && ship_there->player_id != player.id) {
-			if (reach_halite == -1 || reach_halite < ship_there->halite) {
+			if (reach_halite == -1 || ship_there->halite < reach_halite) {
 				reach_halite = ship_there->halite;
 			}
 		}
