@@ -34,6 +34,7 @@ namespace features {
 	double mine_enemy_ships_mult;
 	double priority_epsilon;
 
+	double friendliness_drop_preservation;
 	double friendliness_mine_cell;
 	double friendliness_dodge;
 	double friendliness_should_attack;

@@ -47,7 +47,7 @@ public:
 	bool IsSafe(Position p, bool may_attack);
 	int FriendlinessNew(Player& player, Position position, Ship* skip);
 
-	double Friendliness(Player& player, Position position, bool ignore_position = false);
+	double Friendliness(Player& player, Position position, Ship* skip);
 	int EnemyReachHalite(Player& player, Position position);
 
 	bool WillReceiveImminentAttack(Player& player, Position position);

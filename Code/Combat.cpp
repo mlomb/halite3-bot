@@ -55,43 +55,35 @@ int Combat::FriendlinessNew(Player& player, Position position, Ship* skip)
 	return friendliness;
 }
 
-double Combat::Friendliness(Player& player, Position position, bool ignore_position)
+double Combat::Friendliness(Player& player, Position position, Ship* skip)
 {
 	Map* game_map = game->map;
 	Cell& cell = game_map->GetCell(position);
 
 	const int DISTANCES = 4; // 0, 1, 2, 3
-	const double contributions[DISTANCES] = { 8, 4, 2, 1 };
-
 	double friendliness = 0;
 
 	for (int d = 0; d < DISTANCES; d++) {
 		for (auto& kv : cell.near_info[5].all_ships) {
 			if (kv.first == d) {
+				if (kv.second == skip) continue;
 				if (kv.second->dropping) continue;
-				if (ignore_position) {
-					if (kv.second->pos == position && kv.second->player_id == player.id) {
-						continue;
-					}
-				}
 
 				bool ally_ship = kv.second->player_id == player.id;
 
-				//double i = 1.0 - ((double)kv.second->halite / (double)constants::MAX_HALITE);
-				//i = std::max(i, 0.35);
-				friendliness += /* i */ 1.0 * contributions[d] * (ally_ship ? 1 : -1);
+				double contribution = DISTANCES - d;
+				double i = 1.0 - ((double)kv.second->halite / (double)constants::MAX_HALITE);
+				friendliness += i * contribution * (ally_ship ? 1 : -1);
 			}
 		}
-		/*
 		// Ally Dropoffs are like ships with 0 halite
-		for (auto& kv : cell.near_info[5].dropoffs_dist) {
-			if (kv.first == d && kv.second == player.id) {
+		for (auto& kv : cell.near_info[DISTANCES - 1].dropoffs_dist) {
+			if (kv.first == d && kv.second == player.id && cell.ship_on_cell == nullptr) {
 				double contribution = DISTANCES - d;
 				double i = 1.0;
-				friendliness += i * contributions[d];
+				friendliness += i * contribution;
 			}
 		}
-		*/
 	}
 
 	return friendliness;
@@ -122,7 +114,7 @@ bool Combat::WillReceiveImminentAttack(Player& player, Position position)
 		Ship* ship_there = game->GetShipAt(p);
 		if (ship_there && ship_there->player_id != player.id) {
 			// this ship may attack
-			double f = Friendliness(game->players[ship_there->player_id], position);
+			double f = Friendliness(game->players[ship_there->player_id], position, nullptr);
 			if (players[ship_there->player_id].engage_friendliness_points.size() < 5) {
 				if (f > features::friendliness_should_attack)
 					return false;
@@ -148,13 +140,13 @@ bool Combat::FreeToMove(Player& player, Position position)
 				check_default = true;
 			}
 			else {
-				if (Friendliness(game->players[ship_there->player_id], position) > players[ship_there->player_id].friendliness_no_dodge)
+				if (Friendliness(game->players[ship_there->player_id], position, nullptr) > players[ship_there->player_id].friendliness_no_dodge)
 					return false;
 			}
 		}
 	}
 	if (check_default) {
-		double f = Friendliness(player, position);
+		double f = Friendliness(player, position, nullptr);
 		if (f > features::friendliness_dodge)
 			return false;
 	}
@@ -239,7 +231,7 @@ void Combat::Update()
 				Position p = is.second->pos.DirectionalOffset(d);
 				Cell& c = game->map->GetCell(p);
 				Ship* ship_there = game->GetShipAt(p);
-				double friendliness = Friendliness(ip.second, p);
+				double friendliness = Friendliness(ip.second, p, nullptr);
 
 				// ENGAGE (ram into ships)
 				if (ship_there && ship_there->player_id != ip.second.id) {
