@@ -275,7 +275,7 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 		for (int y = 0; y < constants::MAP_HEIGHT; y++) {
 			Position p = { x, y };
 			Cell& c = game->map->GetCell(p);
-			double friendliness = combat->Friendliness(me, p, nullptr);
+			double friendliness = combat->Friendliness(me, p, game->GetShipAt(p));
 			int dist_to_dropoff = closestDropoffDist[p.x][p.y];
 
 			if (!game->IsDropoff(p) && c.halite > threshold && friendliness > features::friendliness_mine_cell) {
@@ -293,7 +293,7 @@ void Strategy::AssignTasks(std::vector<Command>& commands)
 					int hal = c.halite;
 					int near_hal = c.near_info[4].halite;
 
-					if (friendliness >= 0) {
+					if (friendliness >= features::friendliness_dodge) {
 						for (auto& kv : c.near_info[4].all_ships) {
 							if (kv.second->player_id != me.id) {
 								near_hal += kv.second->halite;

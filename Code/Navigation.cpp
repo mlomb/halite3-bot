@@ -135,19 +135,21 @@ std::vector<NavigationOption> Navigation::NavigationOptionsForShip(Ship* ship)
 	Position target = ship->task.position;
 
 	// Drop preservation
-	if (!strategy->allow_dropoff_collision && current_cell.halite > 300 && current_cell.near_info[3].num_enemy_ships > 0) {
-		bool any_other_ship_has_this_as_target = false;
+	if (ship->task.position != ship->pos && current_cell.halite > 300 && current_cell.near_info[3].num_enemy_ships > 0) {
+		int dist_this_as_target = 99999;
+
 		for (auto& kv : me.ships) {
-			if (kv.second->task.type == TaskType::MINE && kv.second->task.position == ship->pos) {
-				any_other_ship_has_this_as_target = true;
+			if (kv.second != ship &&
+				kv.second->task.position == ship->pos) {
+				dist_this_as_target = std::min(dist_this_as_target, ship->pos.ToroidalDistanceTo(kv.second->pos));
 				break;
 			}
 		}
 
-		if (any_other_ship_has_this_as_target) {
-			if (strategy->combat->Friendliness(me, ship->pos, ship) < features::friendliness_drop_preservation) {
-				target = ship->pos;
-			}
+		if (strategy->combat->Friendliness(me, ship->pos, ship) >= features::friendliness_dodge &&
+			dist_this_as_target != 99999 &&
+			dist_this_as_target > 1) {
+			target = ship->pos;
 		}
 	}
 
@@ -198,12 +200,12 @@ std::vector<NavigationOption> Navigation::NavigationOptionsForShip(Ship* ship)
 		}
 		else {
 			if (enemy_there) {
-				bool can_attack = friendliness > features::friendliness_can_attack;
+				bool can_attack = friendliness > features::friendliness_can_attack && ship->halite < 650;
 
 				if (can_attack) {
 					possible_option = true;
 
-					bool should_attack = friendliness > features::friendliness_should_attack;
+					bool should_attack = friendliness > features::friendliness_should_attack && (ship_there->halite > 300 || ship->task.position == p);
 					if (should_attack)
 						cost = 1 + ((double)ship->halite / (double)constants::MAX_HALITE);
 				}

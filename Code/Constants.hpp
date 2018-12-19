@@ -58,7 +58,6 @@ namespace features {
 	extern double priority_epsilon;
 
 	// Combat
-	extern double friendliness_drop_preservation;
 	extern double friendliness_mine_cell;
 	extern double friendliness_dodge;
 	extern double friendliness_should_attack;
