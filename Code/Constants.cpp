@@ -23,8 +23,8 @@ namespace features {
 	double spawn_min_halite_per_ship;
 
 	int dropoff_per_ships;
-	double dropoff_to_map_avg;
-	int dropoff_min_avg;
+	double dropoff_map_distance;
+	double dropoff_avg_threshold;
 
 	double mine_halite_threshold;
 	double mine_near_avg;

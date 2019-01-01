@@ -70,9 +70,7 @@ void Map::Process()
 			GetCell(ss.second->pos).ship_on_cell = ss.second;
 
 			if (pp.first != game->my_id) {
-				std::vector<Direction> dirs = DIRECTIONS;
-				dirs.push_back(Direction::STILL);
-				for (Direction d : dirs) {
+				for (Direction d : DIRECTIONS_WITH_STILL) {
 					Position pd = ss.second->pos.DirectionalOffset(d);
 					Cell& c = GetCell(pd);
 					if (c.enemy_reach_halite_min == -1 || ss.second->halite < c.enemy_reach_halite_min) {
@@ -122,7 +120,9 @@ void Map::CalculateNearInfo(Cell& c)
 		for (int yy = -MAX_CELL_NEAR_AREA_INFO; yy <= MAX_CELL_NEAR_AREA_INFO; yy++) {
 			Position pos = { c.pos.x + xx, c.pos.y + yy };
 			int d = pos.ToroidalDistanceTo(c.pos);
-			d = std::min(d, MAX_CELL_NEAR_AREA_INFO);
+
+			if (d > MAX_CELL_NEAR_AREA_INFO)
+				continue;
 
 			Cell& it_cell = GetCell(pos);
 

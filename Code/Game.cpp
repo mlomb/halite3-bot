@@ -92,8 +92,8 @@ void Game::LoadFeatures(json& features)
 	GET_FEATURE(spawn_min_halite_per_ship);
 
 	GET_FEATURE(dropoff_per_ships);
-	GET_FEATURE(dropoff_to_map_avg);
-	GET_FEATURE(dropoff_min_avg);
+	GET_FEATURE(dropoff_map_distance);
+	GET_FEATURE(dropoff_avg_threshold);
 	
 	GET_FEATURE(mine_halite_threshold);
 	GET_FEATURE(mine_near_avg);

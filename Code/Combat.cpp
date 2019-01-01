@@ -27,7 +27,10 @@ double Combat::Friendliness(Player& player, Position position, Ship* skip)
 				bool ally_ship = kv.second->player_id == player.id;
 
 				double contribution = DISTANCES - d;
-				double i = 1.0; // - ((double)kv.second->halite / (double)constants::MAX_HALITE);
+				double i = 1.0;
+				if (ally_ship) {
+					//i -= ((double)kv.second->halite / (double)constants::MAX_HALITE);
+				}
 				friendliness += i * contribution * (ally_ship ? 1 : -1);
 			}
 		}
@@ -48,7 +51,7 @@ int Combat::EnemyReachHalite(Player& player, Position position)
 {
 	int reach_halite = -1;
 
-	for (Direction d : DIRECTIONS) {
+	for (Direction d : DIRECTIONS_WITH_STILL) {
 		Position p = position.DirectionalOffset(d);
 		Ship* ship_there = game->GetShipAt(p);
 		if (ship_there && ship_there->player_id != player.id) {
@@ -106,6 +109,168 @@ bool Combat::FreeToMove(Player& player, Position position)
 			return false;
 	}
 	return true;
+}
+
+json Combat::GetShipOnCellDescription(Player& player, Cell& cell)
+{
+	Ship* ship = cell.ship_on_cell;
+
+	json ship_json;
+
+	if (ship) {
+		bool ally = ship->player_id == player.id;
+		ship_json["halite"] = ship->halite;
+		ship_json["ally"] = ally;
+		if (ally) {
+			ship_json["dropping"] = ship->dropping;
+			ship_json["dist_to_target"] = ship->pos.ToroidalDistanceTo(ship->task.position);
+			ship_json["is_this_target"] = ship->task.position == cell.pos;
+			ship_json["target_type"] = static_cast<int>(ship->task.type);
+		}
+	}
+
+	return ship_json;
+}
+
+json Combat::GetCellDescription(Player& player, Cell& cell, json& ships) {
+	json cell_json;
+	cell_json["halite"] = cell.halite;
+	cell_json["inspiration"] = cell.inspiration;
+	cell_json["ship_id"] = cell.ship_on_cell ? cell.ship_on_cell->ship_id : -1;
+	cell_json["dropoff"] = cell.dropoff_owned != -1 ? (cell.dropoff_owned == player.id ? 1 : -1) : 0;
+	cell_json["enemy_reach_halite"] = EnemyReachHalite(player, cell.pos);
+	cell_json["imminent_attack"] = WillReceiveImminentAttack(player, cell.pos);
+	cell_json["friendliness"] = Friendliness(player, cell.pos, cell.ship_on_cell);
+	cell_json["friendliness_excluding"] = Friendliness(player, cell.pos, nullptr);
+
+	json near_info = json::array();
+	for (int k = 0; k <= MAX_CELL_NEAR_AREA_INFO; k++) {
+		AreaInfo& info = cell.near_info[k];
+
+		json area_info;
+		area_info["k"] = k;
+		area_info["halite"] = info.halite;
+		area_info["cells"] = info.cells;
+		area_info["avgHalite"] = info.avgHalite;
+		area_info["num_ally_ships"] = info.num_ally_ships;
+		area_info["num_enemy_ships"] = info.num_enemy_ships;
+		area_info["num_ally_ships_not_dropping"] = info.num_ally_ships_not_dropping;
+		
+		json all_ships = json::array();
+		for (auto& kv : info.all_ships) {
+			json a_ship;
+			a_ship["k"] = kv.first;
+			a_ship["ship_id"] = kv.second->ship_id;
+			all_ships.push_back(a_ship);
+		}
+		area_info["all_ships"] = all_ships;
+
+		near_info.push_back(area_info);
+	}
+	cell_json["near_info"] = near_info;
+
+	if (cell.ship_on_cell) {
+		std::string key = std::to_string(cell.ship_on_cell->ship_id);
+		if(ships.find(key) == ships.end())
+			ships[key] = GetShipOnCellDescription(player, cell);
+	}
+
+	return cell_json;
+}
+
+const int MAP_DESCRIPTION_RADIUS = 4;
+
+json Combat::GetMapDescription(Player& player, Position position, json& ships)
+{
+	json map = json::array();
+
+	int nx = 0, ny = 0;
+
+	for (int y = -MAP_DESCRIPTION_RADIUS; y <= MAP_DESCRIPTION_RADIUS; y++, ny++) {
+		json row = json::array();
+		for (int x = -MAP_DESCRIPTION_RADIUS; x <= MAP_DESCRIPTION_RADIUS; x++, nx++) {
+			Position p = { position.x + x, position.y + y };
+			Cell& c = strategy->game->map->GetCell(p);
+			json desc = GetCellDescription(player, c, ships);
+			desc["position"] = { nx, ny };
+			row.push_back(desc);
+		}
+		map.push_back(row);
+	}
+
+	return map;
+}
+
+bool Combat::ShouldDodge(Ship* ship, Position position)
+{
+	bool should_dodge = false;
+	Player& player = game->GetPlayer(ship->player_id);
+
+	/// ------------------
+	Cell& current_cell = game->map->GetCell(position);
+	Cell& moving_cell = game->map->GetCell(position);
+
+	int current_cell_halite_plus_ship = current_cell.halite + (current_cell.ship_on_cell ? current_cell.ship_on_cell->halite : 0);
+	int moving_cell_halite_plus_ship = moving_cell.halite + (moving_cell.ship_on_cell ? moving_cell.ship_on_cell->halite : 0);
+
+	double current_cell_friendliness = Friendliness(player, current_cell.pos, current_cell.ship_on_cell);
+	double moving_cell_friendliness = Friendliness(player, moving_cell.pos, moving_cell.ship_on_cell);
+
+	bool moving_cell_enemy_ship_there = moving_cell.ship_on_cell && moving_cell.ship_on_cell->player_id != ship->player_id;
+
+
+	bool can_move;
+	can_move |= moving_cell_friendliness > -1;
+	//can_move |= moving_cell.friendliness > -11 && moving_cell.halite > 400;
+	if (moving_cell_enemy_ship_there) {
+		if (moving_cell_friendliness < 7 && current_cell_halite_plus_ship > moving_cell_halite_plus_ship) {
+			can_move = false;
+		}
+	}
+	should_dodge = !can_move;
+
+	/// ------------------
+
+	if (false) {
+		json ships;
+		json j;
+		j["map_radius"] = MAP_DESCRIPTION_RADIUS;
+		j["map"] = GetMapDescription(player, position, ships);
+		j["ships"] = ships;
+
+		Position corner = {
+			position.x - MAP_DESCRIPTION_RADIUS,
+			position.y - MAP_DESCRIPTION_RADIUS
+		};
+		Position current_cell = {
+			ship->pos.x - corner.x,
+			ship->pos.y - corner.y,
+		};
+		Position moving_cell = {
+			position.x - corner.x,
+			position.y - corner.y,
+		};
+		j["current_cell"] = {
+			current_cell.x,
+			current_cell.y
+		};
+		j["moving_cell"] = {
+			moving_cell.x,
+			moving_cell.y
+		};
+
+		Cell& c = game->map->GetCell(position);
+		double friendliness = strategy->combat->Friendliness(player, position, ship);
+		int enemy_reach = strategy->combat->EnemyReachHalite(player, position);
+		Ship* ship_there = game->GetShipAt(position);
+		bool enemy_there = ship_there && ship_there->player_id != player.id;
+
+		j["naive_result"] = should_dodge;
+
+		ship->database[position] = j;
+	}
+
+	return should_dodge;
 }
 
 void Combat::Update()

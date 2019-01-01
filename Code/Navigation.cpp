@@ -35,9 +35,10 @@ void Navigation::MinCostBFS(Position start, OptimalPathMap& map)
 
 		for (const Direction d : DIRECTIONS) {
 			Position new_pos = p.DirectionalOffset(d);
+			Cell& c = game_map->GetCell(new_pos);
 
 			OptimalPathCell new_state;
-			new_state.haliteCost = r.haliteCost + game_map->GetCell(new_pos).MoveCost();
+			new_state.haliteCost = r.haliteCost + c.MoveCost();
 			new_state.turns = r.turns + 1;
 			new_state.expanded = false;
 			new_state.added = true;
@@ -45,6 +46,10 @@ void Navigation::MinCostBFS(Position start, OptimalPathMap& map)
 
 			if (hits[new_pos.x][new_pos.y] == BlockedCell::TRANSIENT) {
 				new_state.turns += 4;
+			}
+
+			if (c.enemy_reach_halite_min != -1) {
+				new_state.haliteCost += 130;
 			}
 			/*
 			if (hits[new_pos.x][new_pos.y] == BlockedCell::STATIC ||
@@ -146,9 +151,12 @@ std::vector<NavigationOption> Navigation::NavigationOptionsForShip(Ship* ship)
 			}
 		}
 
-		if (strategy->combat->Friendliness(me, ship->pos, ship) >= features::friendliness_dodge &&
+		if (//strategy->combat->Friendliness(me, ship->pos, ship) >= features::friendliness_dodge &&
+			!strategy->combat->WillReceiveImminentAttack(me, ship->pos) &&
+			current_cell.near_info[5].num_ally_ships > 1 &&
 			dist_this_as_target != 99999 &&
-			dist_this_as_target > 1) {
+			dist_this_as_target > 1 &&
+			dist_this_as_target < 7) {
 			target = ship->pos;
 		}
 	}
@@ -159,13 +167,8 @@ std::vector<NavigationOption> Navigation::NavigationOptionsForShip(Ship* ship)
 	std::vector<NavigationOption> options;
 
 	for (Direction direction : DIRECTIONS_WITH_STILL) {
-		Position p = ship->pos.DirectionalOffset(direction);
-		Cell& c = game->map->GetCell(p);
-		double friendliness = strategy->combat->Friendliness(me, p, ship);
-		int enemy_reach = strategy->combat->EnemyReachHalite(me, p);
-		bool hit_free = IsHitFree(p);
-		Ship* ship_there = game->GetShipAt(p);
-		bool enemy_there = ship_there && ship_there->player_id != me.id;
+		const Position p = ship->pos.DirectionalOffset(direction);
+		const Cell& c = game->map->GetCell(p);
 
 		if (direction == Direction::STILL && me.IsDropoff(p)) {
 			// do not stay still in a dropoff ever.
@@ -176,50 +179,53 @@ std::vector<NavigationOption> Navigation::NavigationOptionsForShip(Ship* ship)
 			continue;
 		}
 
-		double cost = 0;
-		bool possible_option = false;
+		double friendliness = strategy->combat->Friendliness(me, p, ship);
+		int dist_to_target = ship->task.position.ToroidalDistanceTo(p);
+		int enemy_reach = strategy->combat->EnemyReachHalite(me, p);
+		bool hit_free = IsHitFree(p);
+		Ship* ship_there = game->GetShipAt(p);
+		bool enemy_there = ship_there && ship_there->player_id != me.id;
+		int diff = c.near_info[3].num_ally_ships_not_dropping - c.near_info[3].num_enemy_ships;
 
-		// ----------------------
+		/// ----------------------
+		long long cost = 0;
+		bool possible_option = false;
+		bool should_dodge = false;
+
+		possible_option = false;
+		should_dodge = false;
 		cost = (5 - static_cast<int>(ship->task.type)) * 1000000;
 		cost += map.cells[p.x][p.y].cost(); // max 100000
 
-		if (hit_free) {
+		if (hit_free || ship_there == nullptr || ship_there->player_id != me.id) {
 			possible_option = true;
-			if (enemy_reach != -1) {
-				bool should_dodge = friendliness < features::friendliness_dodge;
-				
-				if (should_dodge) {
-					cost = 10000000;
-
-					cost += 1000000 * c.near_info[0].num_enemy_ships;
-					cost +=  100000 * c.near_info[1].num_enemy_ships;
-					cost +=   10000 * c.near_info[2].num_enemy_ships;
-					cost +=    1000 * c.near_info[3].num_enemy_ships;
-				}
-			}
 		}
-		else {
-			if (enemy_there) {
-				bool can_attack = friendliness > features::friendliness_can_attack && ship->halite < 650;
-
-				if (can_attack) {
-					possible_option = true;
-
-					bool should_attack = friendliness > features::friendliness_should_attack && (ship_there->halite > 300 || ship->task.position == p);
-					if (should_attack)
-						cost = 1 + ((double)ship->halite / (double)constants::MAX_HALITE);
-				}
-			}
+		if (possible_option) {
+			should_dodge = friendliness < -2;
 		}
-		// ----------------------
-		//out::Log("ship: " + std::to_string(ship->ship_id) + " dir: " + std::to_string((int)(direction)) + " friendliness: " + std::to_string(friendliness) + " enemy reach: " + std::to_string(enemy_reach));
+
+		if (should_dodge) {
+			cost += 10000000000000;
+
+			cost += 1000000000000 * c.near_info[0].num_enemy_ships;
+			cost += 100000000000 * c.near_info[1].num_enemy_ships;
+			cost += 10000000000 * c.near_info[2].num_enemy_ships;
+			cost += 1000000000 * c.near_info[3].num_enemy_ships;
+		}
+		/*
+		else if (enemy_reach != -1) {
+			cost += 12001;
+		}
+		*/
+		out::Log("ship: " + std::to_string(ship->ship_id) + " dir: " + std::to_string((int)(direction)) + " friendliness: " + std::to_string(friendliness) + " enemy reach: " + std::to_string(enemy_reach) + " should_dodge: " + std::to_string(should_dodge));
+		/// ----------------------
 
 		if (possible_option) {
 			NavigationOption option;
 			option.direction = direction;
 			option.pos = p;
 			option.ship = ship;
-			option.optionCost = cost * 1000000.0;
+			option.optionCost = cost;
 
 			options.push_back(option);
 		}
@@ -286,12 +292,13 @@ void Navigation::Navigate(std::vector<Ship*> ships, std::vector<Command>& comman
 	for (auto& so : result.assignments) {
 		Ship* s = so.first;
 		Position p = so.second;
+		s->if_dead_use_this_as_key = p;
 		for (Direction d : DIRECTIONS_WITH_STILL) {
 			if (s->pos.DirectionalOffset(d) == p) {
 				commands.push_back(MoveCommand(s->ship_id, d));
 				hits[p.x][p.y] = p == s->task.position && !me.IsDropoff(p) ? BlockedCell::STATIC : BlockedCell::TRANSIENT;
 
-				//out::Log("### SHIP " + std::to_string(s->ship_id) + " CHOOSE OPTION " + std::to_string(static_cast<int>(d)) + " WITH TARGET: " + s->task.position.str());
+				out::Log("### SHIP " + std::to_string(s->ship_id) + " CHOOSE OPTION " + std::to_string(static_cast<int>(d)) + " WITH TARGET: " + s->task.position.str());
 				break;
 			}
 		}

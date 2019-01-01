@@ -1,0 +1,167 @@
+<div id="db">
+
+</div>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+<script>
+var size = 196;
+var sample_size = 7;
+
+var canvas = document.createElement('canvas');
+canvas.width = size;
+canvas.height = size;
+var context = canvas.getContext("2d");
+
+function Key(str) {
+	this.str = str;
+	this.image = [];
+	this.total = 0;
+	this.moves = {};
+	
+	for(var i = 0; i < sample_size; i++) {
+		this.image[i] = [];
+		for(var j = 0; j < sample_size; j++) {
+			this.image[i].push(str[i * sample_size + j]);
+		}
+	}
+}
+
+Key.prototype.draw = function() {
+	context.clearRect(0, 0, canvas.width, canvas.height);
+	
+	var tile_size = size / sample_size;
+	for(var i = 0; i < sample_size; i++) {
+		for(var j = 0; j < sample_size; j++) {
+			var col = 'magenta';
+			switch(this.image[i][j]) {
+				case 'x': col = 'black'; break;
+				case '*': col = 'gray'; break;
+				case '+': col = 'green'; break;
+				case '-': col = 'red'; break;
+			}
+			context.fillStyle = col;
+			context.fillRect(i * tile_size, j * tile_size, tile_size, tile_size);
+		}
+	}
+	
+	return canvas.toDataURL();
+};
+
+Key.prototype.equals = function(other_key) {
+	var matrixEquals = function(a, b) {
+		var result = true;
+		for(var i = 0; i < sample_size; i++) {
+			for(var j = 0; j < sample_size; j++) {
+				if(a[i][j] != b[i][j])
+					result = false;
+			}
+		}
+		//console.log("Comparing: ", JSON.stringify(a), JSON.stringify(b), result);
+		return result;
+	}
+
+	var matrix = this.image.slice();
+	
+	for(var i = 0; i < 2; i++) {
+		for(var j = 0; j < 4; j++) {
+			if(matrixEquals(matrix, other_key.image)) {
+				return true;
+			}
+			rotate(matrix);
+		}
+		flip(matrix);
+	}
+	
+	
+	return false;
+};
+
+var raw_counts;
+var db = [];
+
+$.getJSON("counts_db.json", function(data) {
+	raw_counts = data;
+	process();
+});
+
+function findInDatabase(str) {
+	var k = new Key(str);
+	
+	for(var i = 0; i < db.length; i++) {
+		var k_other = db[i];
+		
+		if(k_other.equals(k)) {
+			return k_other;
+		}
+	}
+	
+	db.push(k);
+	return k;
+}
+
+function process() {
+	var sortable = [];
+	for (var key in raw_counts) {
+		sortable.push([key, raw_counts[key]]);
+	}
+	sortable.sort(function(a, b) {
+		return b[1].total - a[1].total;
+	});
+	
+	for(var i = 0; i < sortable.length; i++) {
+		//console.log(i + "/" + sortable.length + "    DB SIZE: " + db.length);
+		var k = findInDatabase(sortable[i][0]);
+		
+		k.total += sortable[i][1].total;
+		for(var m in sortable[i][1].moves) {
+			if(!(m in k.moves)) {
+				k.moves[m] = 0;
+			}
+			k.moves[m] += sortable[i][1].moves[m];
+		}
+		
+		if(db.length > 500) {
+			break;
+		}
+	}
+	
+	for(var i = 0; i < db.length; i++) {
+		var k = db[i];
+		var desc = "Total: " + k.total + "<br>";
+		for(var m in k.moves) {
+			desc += m + ": " + k.moves[m] + "<br>";
+		}
+		$("#db").append(`
+		<div style="width: 300px;float: left;margin-bottom: 5px;">
+			<img style="width: 196;float:left" src="` + k.draw() + `">
+			<div style="">` + desc + `</div>
+		</div>
+		`);
+	}
+}
+
+
+
+
+
+
+
+
+
+
+
+
+var rotate = function(matrix) {
+  matrix = matrix.reverse();
+  
+  for (var i = 0; i < matrix.length; i++) {
+    for (var j = 0; j < i; j++) {
+      var temp = matrix[i][j];
+      matrix[i][j] = matrix[j][i];
+      matrix[j][i] = temp;
+    }
+  }
+};
+var flip = function(matrix) {
+  matrix = matrix.reverse();
+}
+</script>

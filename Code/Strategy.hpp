@@ -26,6 +26,7 @@ public:
 	bool ShouldSpawnShip();
 
 	void FillClosestDropoffDist();
+	void SimulateMining(int& cell_halite, bool inspired, int ship_halite, int& halite_mined, int& turns);
 
 	Game* game;
 	Navigation* navigation;

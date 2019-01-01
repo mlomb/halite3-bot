@@ -45,8 +45,8 @@ namespace features {
 
 	// Dropoffs
 	extern int dropoff_per_ships;
-	extern double dropoff_to_map_avg;
-	extern int dropoff_min_avg;
+	extern double dropoff_map_distance;
+	extern double dropoff_avg_threshold;
 
 	// Mining
 	extern double mine_halite_threshold;

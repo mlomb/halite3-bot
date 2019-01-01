@@ -21,6 +21,9 @@ struct Ship {
 	bool dropping = false;
 
 	bool CanMove();
+
+	std::map<Position, json> database;
+	Position if_dead_use_this_as_key;
 };
 
 class Player {
@@ -36,7 +39,8 @@ public:
 	int DistanceToClosestDropoff(const Position pos);
 	Ship* ShipAt(const Position& pos);
 	Ship* ClosestShipAt(const Position& pos);
-
+	std::set<Ship*> GetShipsByDistance(const Position& pos, int SET_SIZE);
+	static std::vector<Ship*> SortShipsByDistance(const std::vector<Ship*>& input, const Position p);
 
 	PlayerID id;
 	Position shipyard_position;

@@ -1,0 +1,92 @@
+<div id="db">
+
+</div>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+<script>
+var DENSITY_CATEGORIES = 3;
+
+var games;
+
+$.getJSON("/Worker/report-1545263190662.json", function(data) {
+	games = data;
+	process();
+});
+
+function mapSizeDensity(size) {
+	var mn = 999999999, mx = 0;
+	var pop = [], cuts = [];
+	
+	for(var game of games) {
+		if(game.crash) continue;
+		
+		if(game.map.width == size) {
+			var density = game.map.total_halite / (game.map.width * game.map.height);
+			
+			pop.push(density);
+			mn = Math.min(mn, density);
+			mx = Math.max(mx, density);
+		}
+	}
+	
+	pop.sort();
+	
+	for(var i = 0; i < DENSITY_CATEGORIES; i++) {
+		cuts.push(pop[Math.floor((pop.length / (DENSITY_CATEGORIES + 1)) * (i + 1))]);
+	}
+	
+	return {
+		max: mx,
+		min: mn,
+		pop: pop,
+		cuts: cuts
+	};
+}
+
+function mapToCategory(map) {
+	var d = mapSizeDensity(map.width);
+	var density = map.total_halite / (map.width * map.height);
+	var cat = 0;
+	for(var cut of d.cuts) {
+		cat++;
+		if(density <= cut)
+			break;
+	}
+	
+	return cat + "-" + map.width;
+}
+
+function process() {
+	console.log("Games: " + games.length);
+	
+	var table = {};
+	
+	for(var game of games) {
+		if(game.crash) {
+			console.log("Skipping crash game...");
+			continue;
+		}
+		var cat = mapToCategory(game.map);
+		
+		if(!(cat in table)) {
+			table[cat] = {
+				wins: 0,
+				loss: 0,
+				total: 0
+			};
+		}
+		
+		table[cat].total++;
+		table[cat].wins += game.players[0].rank == 1 ? 1 : 0;
+		table[cat].loss += game.players[0].rank == 1 ? 0 : 1;
+		//console.log(cat, game);
+	}
+	
+	for(var cat in table) {
+		table[cat].winrate = parseFloat((table[cat].wins / (table[cat].total) * 100).toFixed(1));
+	}
+	
+	console.table(table);
+}
+
+
+</script>

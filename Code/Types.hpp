@@ -10,8 +10,13 @@
 #include <string>
 #include <unordered_map>
 #include <chrono>
+#include <bitset>
+#include <unordered_set>
 
 #include "Constants.hpp"
+
+#include "nlohmann/json.hpp"
+using json = nlohmann::json;
 
 class Ship;
 
@@ -124,3 +129,13 @@ std::mt19937_64& mt();
 std::uniform_real_distribution<double> rand_01();
 double GetRandom01();
 void SetRandom01Seed(long long seed);
+
+// https://stackoverflow.com/questions/28409469/all-possible-combinations-bits
+template <std::size_t N> bool increase(std::bitset<N>& bs) {
+	for (std::size_t i = 0; i != bs.size(); ++i) {
+		if (bs.flip(i).test(i) == true) {
+			return true;
+		}
+	}
+	return false; // overflow
+}

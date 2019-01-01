@@ -7,9 +7,6 @@
 #include <vector>
 #include <chrono>
 
-#include "nlohmann/json.hpp"
-using json = nlohmann::json;
-
 #include "Types.hpp"
 
 namespace in {

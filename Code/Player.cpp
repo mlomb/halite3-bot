@@ -42,11 +42,17 @@ void Player::Update(int num_ships, int num_dropoffs, int halite, Game* game)
 
 	auto itr = ships.begin();
 	while (itr != ships.end()) {
-		if ((*itr).second->dead) {
-			delete (*itr).second;
+		Ship* s = (*itr).second;
+		if (s->dead) {
+			if (s->database.find(s->if_dead_use_this_as_key) != s->database.end()) {
+				// new entry
+				out::Log("NEWDBENTRY " + s->database[s->if_dead_use_this_as_key].dump());
+			}
+			delete s;
 			itr = ships.erase(itr);
 		}
 		else {
+			s->database.clear();
 			++itr;
 		}
 	}
@@ -116,6 +122,51 @@ Ship* Player::ClosestShipAt(const Position& pos)
 	}
 
 	return closest_ship;
+}
+
+std::set<Ship*> Player::GetShipsByDistance(const Position& pos, int SET_SIZE)
+{
+	// (N^2)
+
+	std::vector<std::pair<int, Ship*>> v; // <dist, ship>
+
+	for (auto& sp : ships) {
+		if (sp.second->assigned) continue;
+		v.push_back(std::make_pair(pos.ToroidalDistanceTo(sp.second->pos), sp.second));
+	}
+
+	std::sort(v.begin(), v.end());
+
+	std::set<Ship*> s;
+
+	for (auto& ds : v) {
+		if (s.size() >= SET_SIZE)
+			break;
+		s.insert(ds.second);
+	}
+
+	return s;
+}
+
+std::vector<Ship*> Player::SortShipsByDistance(const std::vector<Ship*>& input, const Position p)
+{
+	std::vector<std::pair<int, Ship*>> v; // <dist, ship>
+	v.reserve(input.size());
+
+	for (Ship* s : input) {
+		v.push_back(std::make_pair(p.ToroidalDistanceTo(s->pos), s));
+	}
+
+	std::sort(v.begin(), v.end());
+
+	std::vector<Ship*> result;
+	result.reserve(v.size());
+
+	for (auto& sp : v) {
+		result.push_back(sp.second);
+	}
+
+	return result;
 }
 
 void Player::SortByTaskPriority(std::vector<Ship*>& ships)

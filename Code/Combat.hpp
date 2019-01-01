@@ -50,6 +50,11 @@ public:
 	bool WillReceiveImminentAttack(Player& player, Position position);
 	bool FreeToMove(Player& player, Position position);
 
+	json GetShipOnCellDescription(Player& player, Cell& cell);
+	json GetCellDescription(Player& player, Cell& cell, json& ships);
+	json GetMapDescription(Player& player, Position position, json& ships);
+	bool ShouldDodge(Ship* ship, Position position);
+
 	void Update();
 	void Report();
 

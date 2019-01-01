@@ -1,0 +1,17 @@
+{
+  "name": "tools",
+  "version": "1.0.0",
+  "description": "",
+  "main": "analyzer.js",
+  "dependencies": {
+    "ascii-histogram": "^1.2.1",
+    "cli-progress": "^2.1.0",
+    "console.table": "^0.10.0"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC"
+}
