@@ -6,59 +6,231 @@ var fs = require('fs');
 const queueMatches = new Queue('bot-execution');
 queueMatches.destroy();
 
-const settings = JSON.parse(fs.readFileSync('settings.json', 'utf8'));
+const settings = JSON.parse(fs.readFileSync('settings_master.json', 'utf8'));
 
-var training_name = '2p_32';
+var training_name = '2p_32_master';
 
 console.log('settings', settings);
 
-
-const maps_to_train = [
+const maps2p_32 = [
 	{
-		// 2P 32 LOW
-		seed: 5474827,
+		// 2P 32 test
+		seed: 1542583743,
 		size: 32,
-		halite: 58652,
+		halite: 153614,
+		enemy_bots: ['v65']
 	},
 	{
-		// 2P 32 HIGH
-		seed: 33857932,
+		// 2P 32 test
+		seed: 1541557220,
 		size: 32,
-		halite: 419010
+		halite: 127446,
+		enemy_bots: ['v65']
 	},
 	{
-		// 2P 32 TEST
-		seed: 1541386366,
+		// 4P 32 TEST1
+		seed: 1543096196,
 		size: 32,
-		halite: 187538
-	},
-	/*
-	{
-		// 2P 48 LOW
-		seed: 22792317,
-		size: 48,
-		halite: 132486
+		halite: 205168,
+		enemy_bots: ['v65']
 	},
 	{
-		// 2P 48 HIGH
-		seed: 14459742,
-		size: 48,
-		halite: 735758
+		// 4P 32 TEST2
+		seed: 1543086909,
+		size: 32,
+		halite: 130580,
+		enemy_bots: ['v80']
 	},
 	{
-		// 2P 64 LOW
-		seed: 31407558,
-		size: 64,
-		halite: 232444
+		// 2P 32 TEST3
+		seed: 1541466074,
+		size: 32,
+		halite: 183862,
+		enemy_bots: ['v58']
 	},
 	{
-		// 2P 64 HIGH
-		seed: 33296431,
-		size: 64,
-		halite: 1581922
+		// 2P 32 TEST4
+		seed: 1541521696,
+		size: 32,
+		halite: 198234,
+		enemy_bots: ['v68']
 	},
-	*/
+	{
+		// 2P 32 TEST5
+		seed: 1541519242,
+		size: 32,
+		halite: 196598,
+		enemy_bots: ['v80']
+	},
+	{
+		// 2P 32 TEST6
+		seed: 1541512582,
+		size: 32,
+		halite: 191646,
+		enemy_bots: ['v80']
+	},
+	{
+		// 2P 32 TEST7
+		seed: 1541510394,
+		size: 32,
+		halite: 143716,
+		enemy_bots: ['Aggresive']
+	},
+	{
+		// 2P 32 TEST8
+		seed: 1541509736,
+		size: 32,
+		halite: 175068,
+		enemy_bots: ['Aggresive']
+	},
+	{
+		// 2P 32 TEST8
+		seed: 1543447128,
+		size: 32,
+		halite: 156464,
+		enemy_bots: ['v85']
+	},
+	{
+		// 2P 32 TEST8
+		seed: 1543444241,
+		size: 32,
+		halite: 159810,
+		enemy_bots: ['v85']
+	}
 ];
+
+const maps2p_64 = [
+	{
+		seed: 1543382637,
+		size: 64,
+		halite: 651642,
+		enemy_bots: ['v65']
+	},
+	{
+		seed: 1543382516,
+		size: 64,
+		halite: 625016,
+		enemy_bots: ['v65']
+	},
+	{
+		seed: 1543382610,
+		size: 64,
+		halite: 803608,
+		enemy_bots: ['v85']
+	},
+	{
+		seed: 1543382610,
+		size: 64,
+		halite: 803608,
+		enemy_bots: ['v65']
+	},
+	{
+		seed: 1543382360,
+		size: 64,
+		halite: 862946,
+		enemy_bots: ['v58']
+	},
+	{
+		seed: 1543382282,
+		size: 64,
+		halite: 563780,
+		enemy_bots: ['v68']
+	},
+	{
+		seed: 1543382217,
+		size: 64,
+		halite: 767456,
+		enemy_bots: ['v80']
+	},
+	{
+		seed: 1543382239,
+		size: 64,
+		halite: 765152,
+		enemy_bots: ['v80']
+	},
+	{
+		seed: 1543382200,
+		size: 64,
+		halite: 778726,
+		enemy_bots: ['Aggresive']
+	},
+	{
+		seed: 1543382137,
+		size: 64,
+		halite: 579508,
+		enemy_bots: ['Aggresive']
+	}
+];
+
+const maps4p = [
+	{
+		seed: 1543096196,
+		size: 32,
+		halite: 205168,
+		enemy_bots: ['v65', 'v65', 'v65']
+	},
+	{
+		seed: 1543272914,
+		size: 32,
+		halite: 186344,
+		enemy_bots: ['v58', 'v80', 'v58']
+	},
+	{
+		seed: 1543273607,
+		size: 40,
+		halite: 305908,
+		enemy_bots: ['Aggresive', 'v65', 'Aggresive']
+	},
+	{
+		seed: 1543273176,
+		size: 48,
+		halite: 316900,
+		enemy_bots: ['v80', 'v80', 'v80']
+	},
+	{
+		seed: 1543273594,
+		size: 32,
+		halite: 203196,
+		enemy_bots: ['v68', 'v68', 'v65']
+	},
+	{
+		seed: 1543273607,
+		size: 40,
+		halite: 305908,
+		enemy_bots: ['v68', 'v68', 'v68']
+	},
+	{
+		seed: 1543272914,
+		size: 32,
+		halite: 186344,
+		enemy_bots: ['v65', 'v65', 'v65']
+	},
+	{
+		seed: 1543272607,
+		size: 32,
+		halite: 227036,
+		enemy_bots: ['v65', 'v65', 'Aggresive']
+	},
+	{
+		seed: 1543272738,
+		size: 48,
+		halite: 399504,
+		enemy_bots: ['Aggresive', 'v65', 'v65']
+	},
+	{
+		seed: 1543271775,
+		size: 32,
+		halite: 213288,
+		enemy_bots: ['v65', 'v65', 'v65']
+	},
+];
+
+var maps_to_train = maps2p_32;
+
+
+function randomNum(low, high) {
+	return Math.random() * (high - low) + low;
+}
 
 function random() {
 	var solution = {};
@@ -75,7 +247,6 @@ function crossover(parent1, parent2) {
 	var child = {};
 
 	for(var feature_name in settings.features) {
-		var feature = settings.features[feature_name];
 		if(Math.random() > 0.5) {
 			child[feature_name] = parent1[feature_name];
 		} else {
@@ -89,66 +260,77 @@ function crossover(parent1, parent2) {
 function mutate(solution) {
 	for(var feature_name in settings.features) {
 		var feature = settings.features[feature_name];
-		if(Math.random() < 0.15) {
-			if(Math.random() < 0.5) {
-				// totally new
-				solution[feature_name] = feature.min + Math.random() * (feature.max - feature.min);
-			} else {
-				// adjustment
-				solution[feature_name] += (Math.random() > 0.5 ? -1 : 1) * (feature.max - feature.min) * Math.random() * 0.3;
-			}
-			solution[feature_name] = Math.max(Math.min(solution[feature_name], feature.max), feature.min);
-			// mutate feature
-			//solution[feature_name] = feature.min + Math.random() * (feature.max - feature.min);
-			//solution[feature_name] += (Math.random() > 0.5 ? -1 : 1) * (feature.max - feature.min) * Math.random() * 0.15;
-			//solution[feature_name] += Math.random(-0.1, 0.1) * Math.random(0, feature.max - feature.min);
-			//solution[feature_name] = Math.max(Math.min(solution[feature_name], feature.max), feature.min);
-			
+		
+		var r = Math.random();
+		if(r < 0.15) {
+			solution[feature_name] = feature.min + Math.random() * (feature.max - feature.min);
+		} else if(r < 0.45) {
+			solution[feature_name] += (Math.random() > 0.5 ? -1 : 1) * (feature.max - feature.min) * Math.random() * 0.15;
 		}
+		solution[feature_name] = Math.max(Math.min(solution[feature_name], feature.max), feature.min);
+		// mutate feature
+		//solution[feature_name] = feature.min + Math.random() * (feature.max - feature.min);
+		//solution[feature_name] += (Math.random() > 0.5 ? -1 : 1) * (feature.max - feature.min) * Math.random() * 0.15;
+		//solution[feature_name] += Math.random(-0.1, 0.1) * Math.random(0, feature.max - feature.min);
+		//solution[feature_name] = Math.max(Math.min(solution[feature_name], feature.max), feature.min);
 	}
 
 	return solution;
 }
 
-function fitness(features, callback) {
-	//callback(features.a + Math.sqrt(features.b) + Math.pow(features.c, 2));
-	//return;
-	
+var globa_i = 0;
+
+function fitness(bot, callback) {
 	var results = [];
 	
 	for(var map of maps_to_train) {
+		var json = JSON.stringify(bot.features).replace(/"/g, '\\"');
+		
+		var b = [{
+			index: -1,
+			command: '"cd Latest && MyBot.exe ' + json + '"',
+		}];
+		for(var k in map.enemy_bots) {
+			b.push({
+				index: -1,
+				command: '"cd "' + map.enemy_bots[k] + '" && MyBot.exe"',
+			});
+		}
 		const job = queueMatches.createJob({
 			seed: map.seed,
 			size: map.size,
 			halite: map.halite,
-			features: features,
-		});//.timeout(2 * 60 * 1000);
+			bots: b
+		});
 		
 		function next() {
 			if(results.length == maps_to_train.length) {
 				// all maps done!
 				var fitness = 0;
 				var wins = 0;
+				var hal = 0;
 				for(var r of results) {
 					if(r.rank == 1) wins++;
-					fitness += r.collected * (r.rank == 1 ? 1 : 0.1);
+					fitness += (r.collected) + (r.rank == 1 ? 10 : 0);
+					hal += r.score;
 				}
-				console.log(" -- Fitness: " + fitness + "   Winrate: " + (wins / results.length));
+				globa_i++;
+				console.log(" -- #" + (globa_i < 10 ? '0' + globa_i : globa_i) + "/" + settings.population + "   Fitness: " + fitness.toFixed(3) + "   Winrate: " + ((wins / results.length) * 100).toFixed(2) + "   HAL: " + hal.toLocaleString());
+				
 				callback(fitness);
 			}
 		}
 		job.on('succeeded', function(result) {
-			//console.log("Match finalized! " + JSON.stringify(result));
-			results.push(result);
+			results.push(result[0]);
 			next();
 		});
 		job.on('failed', function() {
 			results.push({
 				rank: 2,
 				score: 0,
-				collected: 0
+				index: solution_index
 			});
-			console.log("Job failed! Seed: " + map.seed + "  Size: " + map.size);
+			console.log("Job failed!");
 			next();
 		});
 		job.save();
@@ -160,10 +342,10 @@ var generation = 1;
 var best = null;
 
 try {
+	best = JSON.parse(fs.readFileSync('best_' + training_name + '.json', 'utf8'));
 	var save = JSON.parse(fs.readFileSync('save_' + training_name + '.json', 'utf8'));
 	population = save.population;
 	generation = save.generation;
-	best = save.best;
 } catch(e) {}
 
 // init random population
@@ -174,9 +356,24 @@ for(var i = population.length; i < settings.population; i++) {
 }
 
 function calcFitness(cb) {
+	/*
+	calcFitnessTournament(function() {
+		cb();
+	});
+	*/
+	globa_i = 0;
 	async.forEach(population, function (item, callback) {
-		fitness(item.features, function(val) {
+		fitness(item, function(val) {
 			item.fitness = val;
+							
+			if(best == null || item.fitness > best.fitness) {
+				best = item;
+				fs.writeFileSync('best_' + training_name + '.json', JSON.stringify(best));
+				console.log(" -------------------------------------");
+				console.log(" ------------- NEW BEST! -------------");
+				console.log(" -------------------------------------");
+			}
+			
 			callback();
 		});
 	}, function(err) {
@@ -195,12 +392,36 @@ function areEqual(features1, features2) {
 	return true;
 }
 
+
 function iteration(cb) {
-	console.log("============= GENERATION " + generation + " ============= (" + population.length + ")");
+	if(generation % 1000 == 0) {
+		console.log("Resetting generations...");
+		for(var i = 0; i < settings.population; i++) {
+			population[i] = {
+				features: random()
+			};
+		}
+		generation = 1;
+	}
+	
+	var L = settings.features.length;
+	var P = settings.population;
+	var diversity = 0;
+	for(var feature_name in settings.features) {
+		for(var j = 0; j < P - 1; j++) {
+			for(var j2 = j + 1; j2 < P; j2++) {
+				diversity += Math.abs(population[j].features[feature_name] - population[j2].features[feature_name]);
+			}
+		}
+	}
+	
+	
+	console.log("============= GENERATION " + generation + " ============= (" + population.length + ")    DIVERSITY: " + diversity);
 	
 	// 1. Calculate fitness
 	calcFitness(function() {
 		var old_population = population;
+		population = [];
 		
 		old_population.sort(function(a, b) {
 			return b.fitness - a.fitness;
@@ -217,25 +438,21 @@ function iteration(cb) {
 		}
 		var avg = sum / old_population.length;
 		
-		console.log(" MIN: " + min + "  MAX: " + max + "  AVG: " + avg + "  AVG COLLECTED: " + (avg / maps_to_train.length));
+		console.log(" MIN: " + min + "  MAX: " + max + "  AVG: " + avg);
+		console.log(" BEST: " + best.fitness);
 		
-		if(best == null || max > best.fitness) {
-			best = old_population[0];
-			fs.writeFileSync('best_' + training_name + '.json', JSON.stringify(best));
-			console.log(" ------------- NEW BEST!");
-		}
-		
-		console.log(" BEST: " + best.fitness + "  AVG COLLECTED: " + (best.fitness / maps_to_train.length));
-		
-		// 2. Crossover first half
-		var cross_amount = 4;//settings.population/2;
-		population = [];
-		for(var i = 0; i < cross_amount; i++) {
-			for(var j = i + 1; j < cross_amount; j++) {
-				population.push({
-					features: crossover(old_population[i].features, old_population[j].features)
-				});
-			}
+		// 2. Crossover
+		var mx_pick = Math.ceil(settings.population * 0.3);
+		for(var i = 0; i < Math.ceil(settings.population * 0.5); i++) {
+			var a = Math.round(randomNum(0, mx_pick));
+			var b = Math.round(randomNum(0, mx_pick));
+			if(a == b) a = Math.round(randomNum(0, mx_pick));
+			
+			//console.log(a + ", " + b);
+			
+			population.push({
+				features: crossover(old_population[a].features, old_population[b].features)
+			});
 		}
 		
 		// 3. Mutate
@@ -268,7 +485,9 @@ function iteration(cb) {
 		}
 		
 		// last one always fresh
-		population[population.length-1] = random();
+		population[population.length-1] = {
+			features: random()
+		};
 		
 		generation++;
 		

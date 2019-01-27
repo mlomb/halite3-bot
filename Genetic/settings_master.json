@@ -1,0 +1,59 @@
+{
+	"population": 30,
+	"generations": 30000,
+	"features": {
+		"dropoff_map_distance": {
+			"min": 0,
+			"max": 1
+		},
+		"dropoff_avg_threshold": {
+			"min": 0,
+			"max": 3.5
+		},
+	
+	
+		"friendliness_drop_preservation": {
+			"min": -1,
+			"max": 1
+		},
+		"friendliness_dodge": {
+			"min": -0.5,
+			"max": 1
+		},
+		"friendliness_can_attack": {
+			"min": -1,
+			"max": 4
+		},
+		"friendliness_should_attack": {
+			"min": 1,
+			"max": 5
+		},
+		"friendliness_mine_cell": {
+			"min": -1.5,
+			"max": 0.1
+		},
+		
+		
+		
+		"mine_dist_cost": {
+			"min": 0,
+			"max": 10
+		},
+		"mine_dist_dropoff_cost": {
+			"min": 0,
+			"max": 10
+		},
+		"mine_avg_mult": {
+			"min": 0,
+			"max": 50
+		},
+		"mine_ally_mult": {
+			"min": -150,
+			"max": 150
+		},
+		"mine_enemy_mult": {
+			"min": -150,
+			"max": 150
+		}
+	}
+}
