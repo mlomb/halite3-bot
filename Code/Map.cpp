@@ -120,9 +120,7 @@ void Map::CalculateNearInfo(Cell& c)
 		for (int yy = -MAX_CELL_NEAR_AREA_INFO; yy <= MAX_CELL_NEAR_AREA_INFO; yy++) {
 			Position pos = { c.pos.x + xx, c.pos.y + yy };
 			int d = pos.ToroidalDistanceTo(c.pos);
-
-			if (d > MAX_CELL_NEAR_AREA_INFO)
-				continue;
+			d = std::min(d, MAX_CELL_NEAR_AREA_INFO);
 
 			Cell& it_cell = GetCell(pos);
 

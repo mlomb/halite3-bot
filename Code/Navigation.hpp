@@ -19,19 +19,19 @@ enum BlockedCell {
 };
 
 struct OptimalPathCell {
-	int haliteCost = 10e6;
-	int turns = 10e6;
+	int haliteCost = INF;
+	int turns = INF;
 	int tor_dist = 0;
 	bool expanded = false;
 	bool added = false;
 
-	int cost() const {
-		return (turns * 60 + haliteCost) * 100 + tor_dist;
+	double ratio() const {
+		return (turns * 1000.0) + tor_dist + haliteCost / 10000.0;
 	}
 
 	bool operator<(const OptimalPathCell& rhs) const
 	{
-		return cost() < rhs.cost();
+		return ratio() < rhs.ratio();
 	}
 };
 struct OptimalPathMap {
@@ -39,7 +39,7 @@ struct OptimalPathMap {
 };
 
 struct NavigationOption {
-	long long int optionCost;
+	double optionCost;
 	Position pos;
 	Direction direction;
 	Ship* ship;

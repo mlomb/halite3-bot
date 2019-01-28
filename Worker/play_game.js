@@ -28,7 +28,7 @@ var bots = [
 	}
 ];
 
-var possible_enemies = ['Aggresive', 'v65', 'v85', 'v92', 'v106'];
+var possible_enemies = ['v85', 'Aggresive', 'v106', 'v38'];//['Aggresive', 'v65', 'v85', 'v92', 'v106'];
 while(bots.length < NUM_PLAYERS) {
 	bots.push({
 		bot: shuffle.pick(possible_enemies)
@@ -43,7 +43,7 @@ const job = queueMatches.createJob({
 }).timeout(11 * 60 * 1000);
 
 job.on('succeeded', function(result) {
-	if(!result.crash && result.players[0].rank == 1 && result.players[0].score > 0) {
+	if(!result.crash && result.players[0].rank == 1 && result.players[0].score > 0 && result.players[1].score > 0) {
 		console.log("W");
 	} else {
 		console.log("L");

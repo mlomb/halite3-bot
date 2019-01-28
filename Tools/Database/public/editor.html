@@ -1,0 +1,67 @@
+<!doctype html>  
+<html lang="en">  
+    <head>
+        
+        <style>
+:root {
+    --header-height: 60px; 
+}
+body {
+    background: #131313;
+    color: white;
+}
+#editor { 
+    position: absolute;
+    top: var(--header-height);
+    right: 0;
+    bottom: 0;
+    left: 0;
+}
+.header {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: var(--header-height);
+    width: 100%;
+}
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <span class="test_info"></span>
+        </div>
+        <div id="editor"></div>
+
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.2/ace.js"></script>
+        <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+        <script src="/socket.io/socket.io.js"></script>
+        <script>
+var editor = ace.edit("editor");
+editor.setTheme("ace/theme/monokai");
+editor.session.setMode("ace/mode/javascript");
+
+editor.on('change', function() {
+    socket.emit('update_code', editor.getValue());
+});
+
+var socket = io.connect();
+socket.on('connect', function(data) {
+    console.log("Connected");
+});
+socket.on('disconnect', function(data) {
+    location.reload();
+});
+socket.on('alert', function(data) {
+    alert(data);
+});
+socket.on('code', function(data) {
+    editor.setValue(data);
+});
+socket.on('test_info', function(data) {
+    $(".test_info").html(data);
+});
+socket.emit('init', 'code');
+
+        </script>
+    </body>
+</html>

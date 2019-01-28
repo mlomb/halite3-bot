@@ -9,7 +9,7 @@
 #include "Player.hpp"
 #include "Map.hpp"
 #include "Navigation.hpp"
-#include "Combat.hpp"
+
 
 class Game;
 
@@ -22,15 +22,14 @@ public:
 	void AssignTasks(std::vector<Command>& commands);
 	void Execute(std::vector<Command>& commands);
 
+	double CalcFriendliness(Ship*, Position p);
 	std::vector<Position> BestDropoffSpots();
 	bool ShouldSpawnShip();
 
 	void FillClosestDropoffDist();
-	void SimulateMining(int& cell_halite, bool inspired, int ship_halite, int& halite_mined, int& turns);
 
 	Game* game;
 	Navigation* navigation;
-	Combat* combat;
 
 	bool allow_dropoff_collision;
 	int reserved_halite;

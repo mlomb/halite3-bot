@@ -20,24 +20,15 @@ namespace constants {
 }
 
 namespace features {
-	double spawn_min_halite_per_ship;
-
-	int dropoff_per_ships;
+	double dropoff_ships_needed;
 	double dropoff_map_distance;
 	double dropoff_avg_threshold;
 
-	double mine_halite_threshold;
-	double mine_near_avg;
-	double mine_dist_cost;
-	double mine_dist_dropoff_cost;
-	double mine_ally_ships_mult;
-	double mine_enemy_ships_mult;
-	double priority_epsilon;
-
-	double friendliness_mine_cell;
+	double friendliness_drop_preservation;
 	double friendliness_dodge;
-	double friendliness_should_attack;
 	double friendliness_can_attack;
+	double friendliness_should_attack;
+	double friendliness_mine_cell;
 
 	// For testing
 	double a, b, c, d, e, f, g;

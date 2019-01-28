@@ -84,6 +84,7 @@ var Halite = {
 				game.frames[turn_i].map[cell.x][cell.y].halite = cell.production;
 			}
 			
+			/*
 			const MAX_CELL_NEAR_AREA_INFO = 5;
 			
 			for(var x = 0; x < game.width; x++) {
@@ -119,6 +120,7 @@ var Halite = {
 					}
 				}
 			}
+			*/
 			game.frames[turn_i].map_avg_halite = game.frames[turn_i].halite_remaining / (game.width * game.height);
 			
 			// copy last turn dropoffs

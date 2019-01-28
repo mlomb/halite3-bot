@@ -1,5 +1,6 @@
 #pragma once
 
+/*
 #include <dlib/svm.h>
 using namespace dlib;
 
@@ -64,3 +65,4 @@ public:
 	std::map<PlayerID, PlayerCombat> players;
 	std::vector<Event> next_turn_events;
 };
+*/

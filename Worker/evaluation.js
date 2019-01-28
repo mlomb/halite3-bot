@@ -1,7 +1,9 @@
 var Queue = require('bee-queue');
 var seedrandom = require('seedrandom');
 var shuffle = require('shuffle-array');
+var fs = require('fs');
 
+var report_file = "report-" + (+new Date()) + ".json";
 var SEED = process.argv[2] || 0;
 var NUM_PLAYERS = process.argv[3] || 2;
 var NUM_GAMES = process.argv[4] || 10;
@@ -23,6 +25,7 @@ const queueMatches = new Queue(config.queue_name, {
 var results = [];
 
 function printResults() {
+	fs.writeFileSync(report_file,JSON.stringify(results, null, 4),{encoding:'utf8',flag:'w'});
 	if(results.length == NUM_GAMES) {
 		var fitness = 0;
 		var fitness_wins = 0;
@@ -44,7 +47,8 @@ for(var i = 0; i < NUM_GAMES; i++) {
 		}
 	];
 
-	var possible_enemies = ['Aggresive', 'default', 'v58', 'v65', 'v68', 'v80', 'v85', 'v38', 'v92', 'v106'];
+	//var possible_enemies = ['Aggresive', 'default', 'v58', 'v65', 'v68', 'v80', 'v85', 'v38', 'v92', 'v106'];
+	var possible_enemies = ['Aggresive', 'v85', 'v38', 'v106'];
 	while(bots.length < NUM_PLAYERS) {
 		bots.push({
 			bot: shuffle.pick(possible_enemies)
@@ -53,6 +57,7 @@ for(var i = 0; i < NUM_GAMES; i++) {
 	
 	const job = queueMatches.createJob({
 		seed: Math.round(Math.random() * 100000),
+		size: 32,
 		bots: bots,
 		replay: true
 	}).timeout(11 * 60 * 1000);

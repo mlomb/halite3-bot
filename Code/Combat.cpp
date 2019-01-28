@@ -1,5 +1,6 @@
 #include "Combat.hpp"
 
+/*
 #include "Game.hpp"
 #include "Strategy.hpp"
 
@@ -299,7 +300,7 @@ void Combat::Update()
 				out::Log("PLAYER #" + std::to_string(e.player_id) + "   REAL: " + std::to_string(r) + "  BEFORE TRAIN PREDICT: " + std::to_string(p) + "     DIFF: " + std::to_string(std::abs(r-p)));
 
 				players[e.player_id].krls.train(s, r);
-				*/
+				* /
 				switch (e.type) {
 				case EventType::ENGAGE:
 					players[e.player_id].engage_friendliness_points.push_back(e.friendliness);
@@ -429,8 +430,9 @@ void Combat::Report()
 			s(2) = t[2] - 0.1;
 
 			out::Log("REAL: " + std::to_string(t[3]) + "  PREDICTED: " + std::to_string(kv.second.krls.get_decision_function()(s)));
-		}*/
+		}* /
 
 		out::Log("");
 	}
 }
+*/

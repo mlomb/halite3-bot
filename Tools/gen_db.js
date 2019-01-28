@@ -7,7 +7,6 @@ const Halite = require("./halite.js");
 
 var target_player_name = 'teccles';
 var replays = "../Analysis/games_" + target_player_name;
-replays = "C:/games_teccles";
 var files = fs.readdirSync(replays);
 
 const INF = 99999999;
