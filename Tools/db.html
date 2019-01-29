@@ -58,8 +58,10 @@ Key.prototype.equals = function(other_key) {
 		//console.log("Comparing: ", JSON.stringify(a), JSON.stringify(b), result);
 		return result;
 	}
-
+	
 	var matrix = this.image.slice();
+	
+	/*
 	
 	for(var i = 0; i < 2; i++) {
 		for(var j = 0; j < 4; j++) {
@@ -71,8 +73,10 @@ Key.prototype.equals = function(other_key) {
 		flip(matrix);
 	}
 	
-	
 	return false;
+	*/
+	
+	return matrixEquals(matrix, other_key.image);
 };
 
 var raw_counts;
