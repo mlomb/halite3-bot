@@ -1,0 +1,11 @@
+{  
+   "features":{  
+	  "dropoff_ships_needed": 12,
+      "friendliness_drop_preservation":-0.30181791662480595,
+      "friendliness_dodge":-0.1,
+      "friendliness_can_attack":0.8,
+      "friendliness_should_attack":1.5,
+      "friendliness_mine_cell":-0.959050655756549
+   },
+   "fitness":102.7721760394079
+}
